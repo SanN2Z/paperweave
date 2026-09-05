@@ -1,0 +1,50 @@
+name: macOS installed app recheck
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: 'Completed macOS desktop workflow run containing candidate DMGs'
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+          - os: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install webkit
+      - name: Download the exact candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run }}
+          BUNDLE_ARCH: ${{ matrix.arch }}
+        run: gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" -n "Paperweave-macos-$BUNDLE_ARCH" -D src-tauri/target/release/bundle/dmg
+      - name: Verify installed app
+        timeout-minutes: 8
+        env:
+          PAPERWEAVE_BUNDLE_RUN: ${{ inputs.build_run }}
+        run: node scripts/desktop-macos-check.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-validation-${{ matrix.arch }}
+          path: |
+            artifacts/macos-*.png
+            artifacts/macos-validation.json
+          if-no-files-found: ignore

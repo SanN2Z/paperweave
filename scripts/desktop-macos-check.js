@@ -71,9 +71,11 @@ await fs.writeFile(path.join(claude, "sessions/123.json"), JSON.stringify({
   waitingFor: "Fixture approval", updatedAt: Date.now(),
 }));
 const native = spawn(executable, ["--data-dir", dataDir], {
-  cwd: temporary, stdio: "ignore",
+  cwd: temporary, stdio: ["ignore", "pipe", "pipe"],
   env: { ...process.env, PATH: cleanPath, CLAUDE_CONFIG_DIR: claude },
 });
+let nativeLog = "";
+for (const stream of [native.stdout, native.stderr]) stream.on("data", chunk => { nativeLog = (nativeLog + chunk).slice(-6000); });
 let runtime, browser, client, nativeScreenshot = false;
 try {
   await expect.poll(async () => {
@@ -152,13 +154,16 @@ try {
   pass("WebKit four-page PDF text rendering, live monitor and dismissal without runtime errors");
   await fs.writeFile(path.join(artifacts, "macos-validation.json"), JSON.stringify({
     platform: process.platform, arch: process.arch, outcomes, nativeScreenshot,
+    bundleRun: process.env.PAPERWEAVE_BUNDLE_RUN || process.env.GITHUB_RUN_ID || null,
     limits: ["Ad-hoc signature only; no Developer ID or notarization", "System WKWebView interactions and Finder/Gatekeeper installation require manual acceptance", "WebKit browser assertions are not native WKWebView UI automation"],
   }, null, 2));
 } catch (error) {
   // Only this CI fixture is inspected; never upload a runtime token or vault.
   const ownWindows = JSON.parse((await run(helper, [String(native.pid)]).catch(() => ({ stdout: "[]" }))).stdout);
   console.error("Native test windows:", JSON.stringify(ownWindows));
-  if (ownWindows[0]) await run("/usr/sbin/screencapture", ["-x", "-l", String(ownWindows[0].id), path.join(artifacts, "macos-native-failure.png")]).catch(() => {});
+  const capture = ["-x", ...(ownWindows[0] ? ["-l", String(ownWindows[0].id)] : []), path.join(artifacts, "macos-native-failure.png")];
+  await run("/usr/sbin/screencapture", capture).catch(() => {});
+  console.error("Native fixture process log:", nativeLog);
   const startup = await fs.readFile(path.join(dataDir, "desktop-launch.log"), "utf8").catch(() => "No desktop launch log created");
   console.error("Fixture startup log:", startup.replace(/token[=:]\S+/gi, "token=[redacted]").slice(-6000));
   throw error;
