@@ -1,0 +1,45 @@
+name: Windows installed app recheck
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: Windows desktop build run containing the installer to test
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Download exact candidate
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run }}
+        run: gh run download $env:BUILD_RUN --name Paperweave-windows-x64 --dir artifacts/windows-candidate
+      - name: Install candidate
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -LiteralPath artifacts/windows-candidate -Filter '*-setup.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'Candidate installer missing' }
+          $destination = Join-Path $env:RUNNER_TEMP 'Paperweave-image-check'
+          $process = Start-Process -FilePath $installer.FullName -ArgumentList @('/S', "/D=$destination") -PassThru -Wait -WindowStyle Hidden
+          if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
+          "PAPERWEAVE_DESKTOP_EXE=$destination\paperweave-desktop.exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Verify installed WebView, images, PTY and MCP
+        run: node scripts/desktop-check.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-installed-validation
+          path: artifacts/desktop-*.png
+          if-no-files-found: ignore
