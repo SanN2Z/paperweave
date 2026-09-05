@@ -4,5 +4,5 @@
   "windows": ["launcher", "workbench-*", "monitor-*"],
   "local": true,
   "remote": { "urls": ["http://127.0.0.1:*/*"] },
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "desktop-actions"]
 }
