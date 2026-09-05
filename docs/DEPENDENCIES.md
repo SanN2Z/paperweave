@@ -29,7 +29,7 @@ Install only what is missing. If WinGet is absent, use the signed installer from
 
 **LaTeX**: if writing PDF output is requested and `pdflatex` is missing, install [MiKTeX](https://miktex.org/howto/install-miktex) or the user's preferred TeX distribution. A command-line installer is documented in [MiKTeX Setup Utility](https://docs.miktex.org/manual/miktexsetup.html). Use user scope where available. Verify `pdflatex --version`; initialize required packages with MiKTeX Console / package manager. Paperweave disables interactive on-demand package installation during compilation, so a missing `.sty` must be installed beforehand. Do not install the entire TeX package universe when the basic template only needs standard article packages.
 
-For a hidden persistent local server:
+Normally use `npm start`: it starts a hidden persistent service and opens the page. Use `npm start -- --no-browser` during setup or on SSH; `npm run serve` runs in the foreground. For manual background-process recovery:
 
 ```powershell
 $paperweaveRoot = (Resolve-Path .).Path

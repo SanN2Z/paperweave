@@ -34,9 +34,21 @@ All paths above are relative to this document. If reading through GitHub, resolv
 
 Suggested final handoff to the human:
 
-> Paperweave is ready at [local URL]. It is connected to [client], and notes are saved in [vault]. Start a new CLI session, then describe your research question. [Mention only unresolved user-action items, if any.]
+> Paperweave is ready at [local URL]. Talk to [client] in the page terminal; notes are saved in [vault]. Describe your research question to begin. [Mention only unresolved user-action items, if any.]
 
 Put logs, architecture, dependency details and extended validation in a file or technical report linked from that handoff.
+
+## Conversation-first startup and terminal appearance
+
+- `npm start` builds if `dist/index.html` is missing, reuses a healthy local service or starts a hidden background service, and opens the browser. Use `-- --no-browser` during installation/SSH checks. `npm run serve` stays in the foreground for process managers. After a code update, rebuild and restart the existing verified service; `npm start` intentionally does not terminate a healthy service and its running experiments.
+- Configure `npm run setup -- --agent codex|claude|shell|auto` to match the user's existing client. `PAPERWEAVE_AGENT` overrides saved preference. `auto` checks PATH for Codex, then Claude; unavailable clients fall back to Shell. Set the intended client during installation instead of making the person choose every time.
+- The first browser terminal starts that real CLI and supplies a fixed greeting prompt: read `get_context`, read `research-workflow`, briefly describe existing context, then ask what to research or continue. Do not start a literature search before the human answers. Paperweave does not supply credentials or bypass the CLI's login/trust prompts.
+- During conversation, use the contract to save summaries, evidence, questions and notes. The UI does not infer research facts from raw terminal output. The board is shared by all terminal tabs; always re-read context before writing after a workspace change.
+- The terminal dock opens by default. Users can resize, maximize, split and create up to four Shell/Codex/Claude terminals. Collapse and color changes preserve sessions. Explicit tab close, page close or disconnected WebSocket ends that shell. Use external terminal multiplexers for experiments that must survive page closure.
+- Terminal appearance is independent from the warm paper UI. The server reads only color values from Windows Terminal settings, choosing `PAPERWEAVE_TERMINAL_PROFILE`, the saved `terminalProfile`, inherited `WT_PROFILE_ID`, or the default profile in that order. Profile overrides take precedence over defaults and a matching custom scheme. Purple ANSI keys map to xterm magenta keys. JSON comments/trailing commas are supported.
+- `PAPERWEAVE_TERMINAL_THEME_FILE` or saved `terminalThemeFile` can point to a Windows-Terminal-format settings file on any OS. A light/dark scheme object uses saved `terminalAppearance` (`light` by default). Only whitelisted hex colors and the scheme name reach the browser; command lines, paths and other settings are never included.
+- Automatic import currently supports custom Windows Terminal schemes. Unresolved built-in schemes, other terminal formats, missing or malformed files fall back to cream and are labelled accordingly. Do not claim universal theme detection. Convert the user's explicit palette to a small compatible settings file for unsupported terminals. The browser remembers local/cream/dark choice; switching colors updates xterm without restarting the shell. Host theme file edits apply on server restart.
+- Prefer the person's intent over forms: new fields, papers, figures and manuscripts can all be created by MCP. Manual controls are optional editing tools. For a selected passage, have the user speak in the same embedded CLI and persist the resulting understanding as linked Markdown.
 
 ## Use shared context accurately
 

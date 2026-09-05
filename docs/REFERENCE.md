@@ -18,7 +18,7 @@ npm run build
 npm start
 ```
 
-打开 **http://127.0.0.1:47831**。在另一个终端运行：
+`npm start` 会自动打开 **http://127.0.0.1:47831**。先由安装 Agent 注册下面的 MCP，之后可以直接在页面里的终端对话：
 
 ```sh
 npm run setup

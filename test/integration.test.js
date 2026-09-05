@@ -5,6 +5,8 @@ import path from "node:path";
 import os from "node:os";
 import http from "node:http";
 import { once } from "node:events";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { WebSocket } from "ws";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -36,6 +38,31 @@ after(async () => {
   await client?.close();
   await app?.close();
   await fs.rm(dir, { recursive: true, force: true });
+});
+
+test("daily launcher reuses the matching running workspace without exposing its token", async () => {
+  const before = await fs.readFile(path.join(dir, "runtime.json"), "utf8");
+  const { stdout } = await promisify(execFile)(
+    process.execPath,
+    ["scripts/launch.js", "--no-browser"],
+    {
+      cwd: root,
+      windowsHide: true,
+      timeout: 10000,
+      env: {
+        ...process.env,
+        PAPERWEAVE_DATA_DIR: dir,
+        PAPERWEAVE_PORT: String(app.server.address().port),
+        PAPERWEAVE_AGENT: "shell",
+      },
+    },
+  );
+  assert.match(stdout, /Paperweave: http:\/\/127\.0\.0\.1:/);
+  assert.ok(!stdout.includes(app.token));
+  assert.equal(
+    await fs.readFile(path.join(dir, "runtime.json"), "utf8"),
+    before,
+  );
 });
 test("local HTTP requires authentication and rejects foreign origins / DNS rebinding", async () => {
   assert.equal((await fetch(`${app.origin}/api/state`)).status, 401);

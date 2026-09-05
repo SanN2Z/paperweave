@@ -4,10 +4,10 @@ Local environment: Windows, Node.js 24.13, installed Microsoft Edge, local MiKTe
 
 ## Executed checks
 
-- `npm test`: **13 passed, 0 failed**. Tests cover persistence, concurrent writes, workspace isolation, relationship integrity, source-preserving notes, external-edit conflict rejection, manuscript revision protection, chart validation, editable PPTX structure and preservation of external PPTX edits.
+- `npm test`: **16 passed, 0 failed**. Tests cover persistence, concurrent writes, workspace isolation, relationship integrity, source-preserving notes, external-edit conflict rejection, manuscript revision protection, chart validation, editable PPTX structure, preservation of external PPTX edits, Windows Terminal theme precedence, safe fallback and reuse of a running service by the daily launcher.
 - Integration checks use an **actual MCP SDK stdio client**, not a mocked protocol: tool discovery, workflow prompt, resource reading, tool errors, PDF attachment / text retrieval, and WebSocket updates.
 - `npm run build`: production Vite build passed. PDF viewer and terminal are lazy-loaded; all application assets are served locally.
-- `npm run test:browser`: browser checks cover paper creation, live graph updates, model/result figures, native PPTX export, Markdown editing and preview, PDF rendering and selected-source context, external Obsidian note changes, real PTY command output, terminal collapse persistence and compact desktop layout.
+- `npm run test:browser`: browser checks cover paper creation, live graph updates, model/result figures, native PPTX export, Markdown editing and preview, PDF rendering and selected-source context, external Obsidian note changes, real PTY output, default-open terminal, theme changes retaining output, resizing, splitting, maximizing, collapse persistence and compact desktop layout. Screenshots use 2× pixel density. Browser fixtures start Shell; no model call is required for testing.
 - `node scripts/latex-check.js`: real local pdflatex compilation passed; generated a valid **28,778-byte PDF** from a saved manuscript. This checks the basic article template, not every journal template or TeX package combination.
 - `npm run doctor`: local Node, Git, Codex, Claude Code, pdflatex, PTY module, application dependencies and production build were detected.
 

@@ -7,6 +7,8 @@ import { WebSocketServer, WebSocket } from "ws";
 import chokidar from "chokidar";
 import { configuration } from "./config.js";
 import { Store } from "./store.js";
+import { terminalTheme } from "./terminal-theme.js";
+import { detectAgent, agentCommand } from "./agents.js";
 import { extractPdf } from "./pdf.js";
 import "../scripts/prepare-pty.js";
 import { execFile } from "node:child_process";
@@ -17,6 +19,12 @@ export async function startServer(config, { dev = false } = {}) {
   config ||= await configuration();
   const store = await new Store(config).init();
   const token = randomBytes(32).toString("hex");
+  const theme = await terminalTheme({
+    file: config.terminalThemeFile,
+    profile: config.terminalProfile,
+    appearance: config.terminalAppearance,
+  });
+  const preferredAgent = config.agent ? detectAgent(config.agent) : null;
   const app = express(),
     server = http.createServer(app),
     sockets = new WebSocketServer({ noServer: true, maxPayload: 128 * 1024 });
@@ -54,7 +62,14 @@ export async function startServer(config, { dev = false } = {}) {
   });
   app.get("/api/session", (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    res.json({ token, terminalAvailable: !!pty, protocol: "paperweave/1" });
+    res.json({
+      token,
+      terminalAvailable: !!pty,
+      protocol: "paperweave/1",
+      terminalTheme: theme,
+      preferredAgent,
+      agentCommand: agentCommand(preferredAgent),
+    });
   });
   app.use("/api", (req, res, next) => {
     const auth =

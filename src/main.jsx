@@ -46,8 +46,9 @@ import {
   downloadText,
 } from "./api";
 import "./style.css";
+import "./workbench.css";
 const PdfReader = lazy(() => import("./PdfReader"));
-const TerminalPane = lazy(() => import("./TerminalPane"));
+const TerminalDock = lazy(() => import("./TerminalDock"));
 const statusText = { unread: "待读", reading: "精读中", reviewed: "已梳理" };
 const kindText = {
   extends: "改进 / 延伸",
@@ -121,20 +122,27 @@ function App() {
     [modal, setModal] = useState(null),
     [error, setError] = useState(""),
     [toast, setToast] = useState(""),
-    [terminal, setTerminal] = useState(false),
+    [terminal, setTerminal] = useState(true),
     [noteEpoch, setNoteEpoch] = useState(0),
     [busy, setBusy] = useState(false),
     [inspectorTab, setInspectorTab] = useState("paper");
   const reconnect = useRef(),
     loadedWorkspace = useRef();
-  const [terminalStarted, setTerminalStarted] = useState(false);
+  const [terminalMaximized, setTerminalMaximized] = useState(false);
   const [draftDirty, setDraftDirty] = useState(false);
   useEffect(() => {
     if (state?.context?.view) setTab(state.context.view);
   }, [state?.context?.view]);
   useEffect(() => {
-    if (terminal) setTerminalStarted(true);
-  }, [terminal]);
+    const shortcut = (e) => {
+      if (e.ctrlKey && e.code === "Backquote") {
+        e.preventDefault();
+        setTerminal((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", shortcut);
+    return () => window.removeEventListener("keydown", shortcut);
+  }, []);
   useEffect(() => {
     let closed = false,
       ws;
@@ -340,7 +348,7 @@ function App() {
         </header>
         <section className="workspace-heading">
           <div>
-            <div className="eyebrow">YOUR IDEAS, CONNECTED</div>
+            <div className="eyebrow">RESEARCH WORKSPACE</div>
             <h1>
               {work.title}
               <span className="workspace-tag">研究工作台</span>
@@ -477,120 +485,147 @@ function App() {
               </button>
             </div>
           </aside>
-          <main className="canvas-area">
-            {tab === "graph" && (
-              <Graph
-                state={state}
-                filtered={filtered}
-                focus={focus}
-                onAdd={() => setModal({ type: "paper" })}
-                onRelation={() => setModal({ type: "relation" })}
-              />
-            )}
-            {tab === "reader" &&
-              (paper ? (
-                <div className="reader-wrap">
-                  <div className="pane-heading reader-title">
-                    <div>
-                      <small>READING ROOM</small>
-                      <h2>{paper.title}</h2>
-                    </div>
-                    <button
-                      className="button secondary small"
-                      onClick={() => setModal({ type: "pdf", paper })}
-                    >
-                      <Upload size={14} />
-                      {paper.pdf ? "更换 PDF" : "导入 PDF"}
-                    </button>
-                  </div>
-                  {paper.pdf ? (
-                    <Suspense
-                      fallback={<p className="muted padded">加载阅读器…</p>}
-                    >
-                      <PdfReader
-                        key={paper.id}
-                        url={fileUrl(paper.pdf)}
-                        page={state.context.page}
-                        onPage={(page) =>
-                          fire("set_context", { page, selection: "" })
-                        }
-                        onSelection={(selection, page) => {
-                          fire("set_context", { selection, page });
-                          setInspectorTab("notes");
-                        }}
-                      />
-                    </Suspense>
-                  ) : (
-                    <div className="reading-summary">
-                      <span className="eyebrow">PAPER OVERVIEW</span>
-                      <h2>{paper.title}</h2>
-                      <p className="muted">
-                        {paper.authors} {paper.year && `· ${paper.year}`}
-                      </p>
-                      {paper.url && (
-                        <a
-                          className="text-link"
-                          href={paper.url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          打开来源 <ExternalLink size={13} />
-                        </a>
-                      )}
-                      <section>
-                        <h3>摘要</h3>
-                        <Markdown
-                          text={
-                            paper.abstract ||
-                            paper.summary ||
-                            "尚未补充摘要。连接 agent 或点击右侧编辑。"
-                          }
-                        />
-                      </section>
+          <div
+            className={`editor-column ${terminalMaximized && terminal ? "terminal-maximized" : ""}`}
+          >
+            <main className="canvas-area">
+              {tab === "graph" && (
+                <Graph
+                  onTalk={() => {
+                    setTerminal(true);
+                    requestAnimationFrame(() =>
+                      document
+                        .querySelector(
+                          ".terminal-session:not([hidden]) .xterm-helper-textarea",
+                        )
+                        ?.focus(),
+                    );
+                  }}
+                  state={state}
+                  filtered={filtered}
+                  focus={focus}
+                  onAdd={() => setModal({ type: "paper" })}
+                  onRelation={() => setModal({ type: "relation" })}
+                />
+              )}
+              {tab === "reader" &&
+                (paper ? (
+                  <div className="reader-wrap">
+                    <div className="pane-heading reader-title">
+                      <div>
+                        <small>READING ROOM</small>
+                        <h2>{paper.title}</h2>
+                      </div>
                       <button
-                        className="button secondary"
+                        className="button secondary small"
                         onClick={() => setModal({ type: "pdf", paper })}
                       >
-                        <Upload size={16} /> 导入 PDF，开始划选精读
+                        <Upload size={14} />
+                        {paper.pdf ? "更换 PDF" : "导入 PDF"}
                       </button>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <Empty
-                  title="选一篇论文，深入一点"
-                  action={
-                    <button
-                      className="button primary"
-                      onClick={() => setModal({ type: "paper" })}
-                    >
-                      <Plus size={15} />
-                      添加论文
-                    </button>
-                  }
-                >
-                  点击左侧论文，即可阅读原文、划选段落和记录疑问。
-                </Empty>
-              ))}
-            {tab === "figures" && (
-              <Figures
-                state={state}
-                act={act}
-                setModal={setModal}
-                copy={copy}
+                    {paper.pdf ? (
+                      <Suspense
+                        fallback={<p className="muted padded">加载阅读器…</p>}
+                      >
+                        <PdfReader
+                          key={paper.id}
+                          url={fileUrl(paper.pdf)}
+                          page={state.context.page}
+                          onPage={(page) =>
+                            fire("set_context", { page, selection: "" })
+                          }
+                          onSelection={(selection, page) => {
+                            fire("set_context", { selection, page });
+                            setInspectorTab("notes");
+                          }}
+                        />
+                      </Suspense>
+                    ) : (
+                      <div className="reading-summary">
+                        <span className="eyebrow">PAPER OVERVIEW</span>
+                        <h2>{paper.title}</h2>
+                        <p className="muted">
+                          {paper.authors} {paper.year && `· ${paper.year}`}
+                        </p>
+                        {paper.url && (
+                          <a
+                            className="text-link"
+                            href={paper.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            打开来源 <ExternalLink size={13} />
+                          </a>
+                        )}
+                        <section>
+                          <h3>摘要</h3>
+                          <Markdown
+                            text={
+                              paper.abstract ||
+                              paper.summary ||
+                              "尚未补充摘要。连接 agent 或点击右侧编辑。"
+                            }
+                          />
+                        </section>
+                        <button
+                          className="button secondary"
+                          onClick={() => setModal({ type: "pdf", paper })}
+                        >
+                          <Upload size={16} /> 导入 PDF，开始划选精读
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <Empty
+                    title="选一篇论文，深入一点"
+                    action={
+                      <button
+                        className="button primary"
+                        onClick={() => setModal({ type: "paper" })}
+                      >
+                        <Plus size={15} />
+                        添加论文
+                      </button>
+                    }
+                  >
+                    点击左侧论文，即可阅读原文、划选段落和记录疑问。
+                  </Empty>
+                ))}
+              {tab === "figures" && (
+                <Figures
+                  state={state}
+                  act={act}
+                  setModal={setModal}
+                  copy={copy}
+                />
+              )}
+              <div className="writing-host" hidden={tab !== "writing"}>
+                <Writing
+                  key={state.activeWorkspaceId}
+                  state={state}
+                  act={act}
+                  run={run}
+                  epoch={noteEpoch}
+                  onDirty={setDraftDirty}
+                />
+              </div>
+            </main>
+            <Suspense
+              fallback={
+                <div className="terminal-loading">正在连接本地终端…</div>
+              }
+            >
+              <TerminalDock
+                session={sessionData}
+                open={terminal}
+                onOpenChange={setTerminal}
+                maximized={terminalMaximized}
+                onMaximize={setTerminalMaximized}
               />
-            )}
-            <div className="writing-host" hidden={tab !== "writing"}>
-              <Writing
-                key={state.activeWorkspaceId}
-                state={state}
-                act={act}
-                run={run}
-                epoch={noteEpoch}
-                onDirty={setDraftDirty}
-              />
-            </div>
-          </main>
+            </Suspense>
+          </div>
           <aside className="inspector">
             <div className="inspector-tabs">
               <button
@@ -828,7 +863,7 @@ function App() {
               <span className="vault-dot" />
               <div>
                 <strong>你的笔记，留在本地</strong>
-                <small title={state.vault}>{state.vault}</small>
+                <small title={state.vault}>Markdown · Obsidian 双向同步</small>
               </div>
               <button
                 title="查看 Obsidian 设置"
@@ -838,25 +873,6 @@ function App() {
               </button>
             </div>
           </aside>
-        </div>
-        <div className={`terminal-pane ${terminal ? "expanded" : ""}`}>
-          <button
-            className="terminal-toggle"
-            onClick={() => setTerminal((v) => !v)}
-          >
-            <TerminalIcon size={15} />
-            <strong>终端</strong>
-            <span>CLI · 实验 · 论文讨论</span>
-            <span className="terminal-toggle-right">
-              {terminal ? "收起" : "打开本地终端"}
-              <ChevronRight size={14} />
-            </span>
-          </button>
-          {terminalStarted && (
-            <Suspense fallback={<p>加载终端…</p>}>
-              <TerminalPane />
-            </Suspense>
-          )}
         </div>
         <footer className="statusbar">
           <span>
@@ -1402,18 +1418,18 @@ function App() {
   );
 }
 
-function Graph({ state, filtered, focus, onAdd, onRelation }) {
+function Graph({ state, filtered, focus, onAdd, onRelation, onTalk }) {
   const [zoom, setZoom] = useState(1),
     [edge, setEdge] = useState(null);
   const papers = filtered;
-  const width = 940,
-    height = Math.max(590, Math.ceil(papers.length / 3) * 225 + 130);
+  const width = 960,
+    height = Math.max(500, Math.ceil(papers.length / 3) * 235 + 65);
   const positions = new Map(
     papers.map((p, i) => [
       p.id,
       {
-        x: 65 + (i % 3) * 295,
-        y: 85 + Math.floor(i / 3) * 225 + (i % 3 === 1 ? 48 : 0),
+        x: 35 + (i % 3) * 310,
+        y: 28 + Math.floor(i / 3) * 235 + (i % 3 === 1 ? 32 : 0),
       },
     ]),
   );
@@ -1467,8 +1483,8 @@ function Graph({ state, filtered, focus, onAdd, onRelation }) {
                     t = positions.get(r.target);
                   if (!s || !t) return null;
                   const left = t.x > s.x,
-                    x1 = s.x + (left ? 226 : 0),
-                    x2 = t.x + (left ? 0 : 226),
+                    x1 = s.x + (left ? 246 : 0),
+                    x2 = t.x + (left ? 0 : 246),
                     y1 = s.y + 83,
                     y2 = t.y + 83;
                   return (
@@ -1569,21 +1585,26 @@ function Graph({ state, filtered, focus, onAdd, onRelation }) {
               <PenLine size={25} />
             </span>
           </div>
-          <span className="eyebrow">A SPACE FOR YOUR NEXT DISCOVERY</span>
+          <span className="eyebrow">A QUIET SPACE FOR DEEP THINKING</span>
           <h2>
-            把零散的论文，
+            从一个问题开始，
             <br />
-            连成自己的理解。
+            展开一段研究。
           </h2>
           <p>
-            导入论文，与 Agent 一起阅读。
+            直接在下方对话，像平常使用 CLI 一样。
             <br />
-            研究的来龙去脉，会在这里逐渐清晰。
+            论文、脉络和讨论后的笔记，会在这里逐渐沉淀。
           </p>
-          <button className="button primary" onClick={onAdd}>
-            <Plus size={16} />
-            添加第一篇论文
-          </button>
+          <div className="welcome-actions">
+            <button className="button primary" onClick={onTalk}>
+              <TerminalIcon size={17} /> 开始和 Agent 对话{" "}
+              <ArrowRight size={16} />
+            </button>
+            <button className="text-button" onClick={onAdd}>
+              添加第一篇论文
+            </button>
+          </div>
           <div className="empty-features">
             <span>
               <BookOpen size={15} />
@@ -2082,7 +2103,7 @@ function Writing({ state, act, run, epoch, onDirty }) {
     }
   }
   return (
-    <div className="writing-view">
+    <div className={`writing-view ${record ? "has-manuscript" : ""}`}>
       <div className="section-top">
         <div>
           <span className="eyebrow">FROM THINKING TO WRITING</span>
@@ -2272,7 +2293,9 @@ function Writing({ state, act, run, epoch, onDirty }) {
           </div>
           <div className="writing-foot">
             <FileText size={13} />
-            <span title={record.path}>{record.path}</span>
+            <span title={record.path}>
+              {record.title}.{record.format} · 本地文件
+            </span>
             <button
               className="text-button"
               onClick={() =>

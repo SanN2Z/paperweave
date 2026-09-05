@@ -7,8 +7,11 @@ const args = process.argv.slice(2),
     args.includes(key) ? args[args.indexOf(key) + 1] : undefined;
 const vault = value("--vault"),
   cwd = value("--cwd"),
-  port = value("--port");
-if (vault || cwd || port) {
+  port = value("--port"),
+  agent = value("--agent");
+if (agent && !["auto", "codex", "claude", "shell"].includes(agent))
+  throw new Error("Agent must be auto, codex, claude or shell");
+if (vault || cwd || port || agent) {
   if (vault) config.vault = path.resolve(vault);
   if (cwd) config.terminalCwd = path.resolve(cwd);
   if (port) {
@@ -21,10 +24,20 @@ if (vault || cwd || port) {
       throw new Error("Port must be 1024–65535");
   }
   await fs.mkdir(config.dataDir, { recursive: true });
+  let saved = {};
+  try {
+    saved = JSON.parse(
+      await fs.readFile(path.join(config.dataDir, "config.json"), "utf8"),
+    );
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
   await fs.writeFile(
     path.join(config.dataDir, "config.json"),
     JSON.stringify(
       {
+        ...saved,
+        agent: agent || config.agent,
         vault: config.vault,
         terminalCwd: config.terminalCwd,
         port: config.port,

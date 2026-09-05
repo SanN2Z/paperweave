@@ -24,6 +24,14 @@ export async function configuration() {
     port,
     dataDir,
     root,
+    agent: process.env.PAPERWEAVE_AGENT || saved.agent || "auto",
+    terminalThemeFile:
+      process.env.PAPERWEAVE_TERMINAL_THEME_FILE || saved.terminalThemeFile,
+    terminalProfile:
+      process.env.PAPERWEAVE_TERMINAL_PROFILE ||
+      saved.terminalProfile ||
+      process.env.WT_PROFILE_ID,
+    terminalAppearance: saved.terminalAppearance || "light",
     vault: path.resolve(
       process.env.PAPERWEAVE_VAULT ||
         saved.vault ||

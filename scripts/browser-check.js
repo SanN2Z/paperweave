@@ -13,6 +13,7 @@ const app = await startServer({
   dataDir: dir,
   vault: path.join(dir, "vault"),
   terminalCwd: root,
+  terminalThemeFile: path.join(dir, "missing-theme.json"),
   port: await freePort(),
 });
 const chrome =
@@ -29,14 +30,15 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({
   viewport: { width: 1600, height: 1050 },
-  deviceScaleFactor: 1,
+  deviceScaleFactor: 2,
 });
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 await fs.mkdir(path.join(root, "artifacts"), { recursive: true });
 try {
   await page.goto(app.origin);
-  await expect(page.getByText("把零散的论文，")).toBeVisible();
+  await expect(page.getByText("从一个问题开始，")).toBeVisible();
+  await expect(page.locator(".terminal-dock")).toHaveClass(/is-open/);
   await page.screenshot({
     path: path.join(root, "artifacts", "empty.png"),
     fullPage: true,
@@ -61,6 +63,7 @@ try {
   await expect(page.locator(".detail-title")).toHaveText(
     "Efficient Adaptation with Lightweight Modules",
   );
+  await expect(page.locator(".toast")).toHaveCount(0);
   await page.screenshot({
     path: path.join(root, "artifacts", "workbench.png"),
     fullPage: true,
@@ -89,6 +92,7 @@ try {
   await expect(page.locator(".manuscript-preview")).toContainText(
     "核验参考文献",
   );
+  await expect(page.locator(".toast")).toHaveCount(0);
   await page.screenshot({
     path: path.join(root, "artifacts", "writing.png"),
     fullPage: true,
@@ -168,7 +172,6 @@ try {
   console.log("PASS external Obsidian note edits appear in browser");
   const info = await fetch(`${app.origin}/api/session`).then((r) => r.json());
   if (info.terminalAvailable) {
-    await page.locator(".terminal-toggle").click();
     await expect(page.locator(".xterm-screen")).toBeVisible();
     await expect(page.locator(".terminal-status")).toContainText("本地 Shell");
     await page
@@ -186,6 +189,45 @@ try {
         { timeout: 10000 },
       )
       .toBeGreaterThanOrEqual(2);
+    await expect(page.locator(".terminal-content")).toHaveCSS(
+      "background-color",
+      "rgb(231, 219, 180)",
+    );
+    await page.getByLabel("终端配色", { exact: true }).selectOption("dark");
+    await expect(page.locator(".terminal-content")).toHaveCSS(
+      "background-color",
+      "rgb(24, 24, 24)",
+    );
+    await expect(page.locator(".xterm-accessibility-tree")).toContainText(
+      "PAPERWEAVE_TERMINAL_OK",
+    );
+    await page.getByLabel("终端配色", { exact: true }).selectOption("local");
+    const size = await page.locator(".terminal-dock").boundingBox();
+    await page.getByRole("separator", { name: "调整终端高度" }).focus();
+    await page.keyboard.press("ArrowUp");
+    await expect
+      .poll(
+        async () => (await page.locator(".terminal-dock").boundingBox()).height,
+      )
+      .toBeGreaterThan(size.height);
+    await page.getByRole("button", { name: "终端分屏", exact: true }).click();
+    await expect(page.locator(".terminal-session:not([hidden])")).toHaveCount(
+      2,
+    );
+    await expect(page.locator(".terminal-status").last()).toContainText(
+      "本地 Shell",
+    );
+    await page
+      .getByRole("button", { name: "结束 Terminal 2", exact: true })
+      .click();
+    await expect(page.locator(".terminal-session")).toHaveCount(1);
+    await expect(page.locator(".xterm-accessibility-tree")).toContainText(
+      "PAPERWEAVE_TERMINAL_OK",
+    );
+    await page.getByRole("button", { name: "最大化终端", exact: true }).click();
+    await expect(page.locator(".canvas-area")).toBeHidden();
+    await page.getByRole("button", { name: "还原终端", exact: true }).click();
+    await expect(page.locator(".canvas-area")).toBeVisible();
     await page.screenshot({
       path: path.join(root, "artifacts", "terminal.png"),
       fullPage: true,
@@ -200,7 +242,7 @@ try {
     await expect(page.locator(".terminal-status")).toContainText("会话已结束");
     await page.locator(".terminal-toggle").click();
     console.log(
-      "PASS real PTY command output, collapse persistence and shell exit",
+      "PASS real PTY output, theme switching without session loss, resize, split, maximize, collapse and shell exit",
     );
   }
   await page.setViewportSize({ width: 1280, height: 800 });
