@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  lazy,
+  Suspense,
+} from "react";
 import { createRoot } from "react-dom/client";
 import {
   BookOpen,
@@ -46,10 +53,11 @@ import {
   wsUrl,
   downloadText,
 } from "./api";
-import "./style.css";
+import "./tokens.css";
 import TemplateLibrary from "./TemplateLibrary";
 import "./workbench.css";
 import WorkspaceTabs from "./WorkspaceTabs";
+import { useDocumentScroll } from "./useWorkbenchInteraction";
 const PdfReader = lazy(() => import("./PdfReader"));
 const TerminalDock = lazy(() => import("./TerminalDock"));
 const VisualMarkdown = lazy(() => import("./VisualMarkdown"));
@@ -90,6 +98,46 @@ function Empty({ icon: Icon = BookOpen, title, children, action }) {
   );
 }
 function Modal({ title, onClose, children, wide = false }) {
+  const dialog = useRef(null),
+    close = useRef(onClose),
+    previousFocus = useRef(document.activeElement);
+  close.current = onClose;
+  useEffect(() => {
+    const previous = previousFocus.current;
+    (
+      dialog.current?.querySelector(
+        "input:not(:disabled),textarea:not(:disabled),select:not(:disabled)",
+      ) || dialog.current?.querySelector("button:not(:disabled)")
+    )?.focus();
+    const keyboard = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        close.current();
+      }
+      if (e.key !== "Tab") return;
+      const fields = [
+        ...dialog.current.querySelectorAll(
+          'button:not(:disabled),a[href],input:not(:disabled),textarea:not(:disabled),select:not(:disabled),[tabindex="0"]',
+        ),
+      ].filter((node) => node.getClientRects().length);
+      const first = fields[0],
+        last = fields.at(-1);
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      }
+      if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    };
+    document.addEventListener("keydown", keyboard, true);
+    return () => {
+      document.removeEventListener("keydown", keyboard, true);
+      if (previous?.isConnected) previous.focus();
+    };
+  }, []);
   return (
     <div
       className="modal-backdrop"
@@ -99,13 +147,13 @@ function Modal({ title, onClose, children, wide = false }) {
     >
       <section
         role="dialog"
+        ref={dialog}
         aria-modal="true"
         aria-label={title}
         className={`modal ${wide ? "wide" : ""}`}
       >
         <header>
           <div>
-            <span className="eyebrow">PAPERWEAVE</span>
             <h2>{title}</h2>
           </div>
           <button aria-label="关闭" onClick={onClose}>
@@ -320,7 +368,7 @@ function App() {
           ].map(([key, Icon, label]) => (
             <button
               key={key}
-              title={label}
+              data-tooltip={label}
               aria-label={label}
               className={tab === key ? "active" : ""}
               onClick={() => {
@@ -348,7 +396,6 @@ function App() {
           >
             <Settings size={20} />
           </button>
-          <div className="avatar">研</div>
         </div>
       </aside>
       <div className="app-main">
@@ -1798,34 +1845,36 @@ function Graph({
     <div className="graph-wrap" ref={graphHost}>
       <div className="canvas-toolbar">
         <div>
-          <span className="live-dot" />
+          <Network size={16} />
           <strong>研究脉络</strong>
           <span className="faint">{state.relations.length} 条关系</span>
         </div>
-        <button
-          className="button secondary small"
-          disabled={state.papers.length < 2}
-          onClick={onRelation}
-        >
-          <Plus size={13} />
-          建立关系
-        </button>
-        <button
-          className="text-button"
-          onClick={() =>
-            onArrange(
-              papers.map((p, i) => ({
-                paperId: p.id,
-                x: 35 + (i % 3) * 310,
-                y: 28 + Math.floor(i / 3) * 235 + (i % 3 === 1 ? 32 : 0),
-              })),
-            )
-              .then(() => setPlaced({}))
-              .catch(() => {})
-          }
-        >
-          自动排列
-        </button>
+        <div className="canvas-actions">
+          <button
+            className="button secondary small"
+            disabled={state.papers.length < 2}
+            onClick={onRelation}
+          >
+            <Plus size={13} />
+            建立关系
+          </button>
+          <button
+            className="text-button"
+            onClick={() =>
+              onArrange(
+                papers.map((p, i) => ({
+                  paperId: p.id,
+                  x: 35 + (i % 3) * 310,
+                  y: 28 + Math.floor(i / 3) * 235 + (i % 3 === 1 ? 32 : 0),
+                })),
+              )
+                .then(() => setPlaced({}))
+                .catch(() => {})
+            }
+          >
+            自动排列
+          </button>
+        </div>
       </div>
       {papers.length ? (
         <div className="graph-scroll">
@@ -1840,8 +1889,9 @@ function Graph({
               <svg className="graph-lines" width={width} height={height}>
                 {linking && (
                   <path
-                    d={`M${positions.get(linking.source).x + 246} ${positions.get(linking.source).y + 83} L${linking.x} ${linking.y}`}
-                    stroke="#658050"
+                    d={`M${positions.get(linking.source).x + 246} ${positions.get(linking.source).y + 98} L${linking.x} ${linking.y}`}
+                    className="graph-connection-preview"
+                    stroke="var(--accent)"
                     strokeWidth="2"
                     strokeDasharray="5 4"
                   />
@@ -1870,8 +1920,8 @@ function Graph({
                   const left = t.x > s.x,
                     x1 = s.x + (left ? 246 : 0),
                     x2 = t.x + (left ? 0 : 246),
-                    y1 = s.y + 83,
-                    y2 = t.y + 83;
+                    y1 = s.y + 98,
+                    y2 = t.y + 98;
                   return (
                     <g
                       key={r.id}
@@ -1961,7 +2011,7 @@ function Graph({
                         setLinking({
                           source: p.id,
                           x: pos.x + 246,
-                          y: pos.y + 83,
+                          y: pos.y + 98,
                         });
                       }}
                       onPointerMove={(e) => {
@@ -2131,6 +2181,10 @@ function NoteEditor({ note, epoch, act, onClose, onDirty }) {
     [preview, setPreview] = useState(true),
     [changed, setChanged] = useState(false);
   const dirtyRef = useRef(false);
+  const documentScroll = useDocumentScroll(
+    note.id,
+    preview ? "preview" : "source",
+  );
   useEffect(() => {
     onDirty?.(dirty);
     const guard = (e) => {
@@ -2204,7 +2258,7 @@ function NoteEditor({ note, epoch, act, onClose, onDirty }) {
         </button>
       </div>
       {preview ? (
-        <div className="note-reading-pane">
+        <div className="note-reading-pane" {...documentScroll}>
           <article className="note-preview">
             <Suspense fallback={<p>加载编辑器…</p>}>
               <VisualMarkdown
@@ -2221,6 +2275,7 @@ function NoteEditor({ note, epoch, act, onClose, onDirty }) {
       ) : (
         <textarea
           className="note-editor code-input"
+          {...documentScroll}
           value={body}
           onChange={(e) => {
             setBody(e.target.value);
@@ -2536,6 +2591,14 @@ function Writing({ state, act, run, epoch, onDirty, focused, onFocus }) {
     [changed, setChanged] = useState(false);
   const dirtyRef = useRef(false);
   const editorRef = useRef();
+  const documentScroll = useDocumentScroll(selected, preview);
+  const bindEditor = useCallback(
+    (node) => {
+      editorRef.current = node;
+      documentScroll.ref(node);
+    },
+    [documentScroll.ref],
+  );
   const outline = [
     ...body.matchAll(/^(?:#{1,3}\s+(.+)|\\(?:sub)*section\*?\{([^}]+)\})/gm),
   ].map((m) => ({ title: m[1] || m[2], offset: m.index }));
@@ -2667,19 +2730,11 @@ function Writing({ state, act, run, epoch, onDirty, focused, onFocus }) {
       {record ? (
         <>
           <div className="editor-toolbar">
-            <input
-              aria-label="草稿标题"
-              className="draft-title"
-              value={record.title}
-              onChange={(e) => {
-                setRecord({ ...record, title: e.target.value });
-                setDirty(true);
-                dirtyRef.current = true;
-              }}
-            />
             <span className="faint">{dirty ? "未保存" : "已保存"}</span>
             <button
               className="text-button"
+              aria-label="重新载入草稿"
+              title="重新载入草稿"
               onClick={() => {
                 if (!dirty || confirm("重新载入会替换你的未保存草稿，继续？"))
                   load(selected).catch(() => {});
@@ -2689,6 +2744,8 @@ function Writing({ state, act, run, epoch, onDirty, focused, onFocus }) {
             </button>
             <button
               className="text-button"
+              aria-label="下载草稿"
+              title="下载草稿"
               onClick={() =>
                 downloadText(`${record.title}.${record.format}`, body)
               }
@@ -2776,7 +2833,8 @@ function Writing({ state, act, run, epoch, onDirty, focused, onFocus }) {
             )}
             {preview === "source" ? (
               <textarea
-                ref={editorRef}
+                ref={bindEditor}
+                onScroll={documentScroll.onScroll}
                 spellCheck="false"
                 className="manuscript-editor"
                 onMouseUp={(e) => {
@@ -2798,7 +2856,7 @@ function Writing({ state, act, run, epoch, onDirty, focused, onFocus }) {
                 }}
               />
             ) : record.format === "md" ? (
-              <div className="manuscript-preview">
+              <div className="manuscript-preview" {...documentScroll}>
                 <Suspense fallback={<p>加载编辑器…</p>}>
                   <VisualMarkdown
                     value={body}
@@ -2832,9 +2890,21 @@ function Writing({ state, act, run, epoch, onDirty, focused, onFocus }) {
           </div>
           <div className="writing-foot">
             <FileText size={13} />
-            <span title={record.path}>
-              {record.title}.{record.format} · 本地文件
-            </span>
+            <input
+              aria-label="草稿标题"
+              title="修改草稿标题后保存"
+              className="draft-title"
+              value={record.title}
+              style={{
+                width: `${Math.min(32, Math.max(12, record.title.length + 4))}em`,
+              }}
+              onChange={(e) => {
+                setRecord({ ...record, title: e.target.value });
+                setDirty(true);
+                dirtyRef.current = true;
+              }}
+            />
+            <span title={record.path}>.{record.format} · 本地文件</span>
             <button
               className="text-button"
               onClick={() =>

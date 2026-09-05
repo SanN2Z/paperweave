@@ -56,6 +56,45 @@ try {
   await expect(page.locator(".workspace-heading,.metrics")).toHaveCount(0);
   await expect(page.locator(".library")).toBeHidden();
   await expect(page.locator(".inspector")).toBeHidden();
+  const tabLauncher = page.getByRole("button", { name: "新建研究标签页" });
+  await tabLauncher.click();
+  await expect(page.locator(".workspace-tab-menu")).toBeVisible();
+  await page.locator(".topbar").click({ position: { x: 500, y: 40 } });
+  await expect(page.locator(".workspace-tab-menu")).toHaveCount(0);
+  await tabLauncher.click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".workspace-tab-menu")).toHaveCount(0);
+  await expect(tabLauncher).toBeFocused();
+  const terminalLauncher = page.getByRole("button", { name: "选择终端类型" });
+  await terminalLauncher.click();
+  await expect(terminalLauncher).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(terminalLauncher).toHaveAttribute("aria-expanded", "false");
+  await expect(terminalLauncher).toBeFocused();
+  const addPaper = page.getByRole("button", {
+    name: "添加第一篇论文",
+    exact: true,
+  });
+  await addPaper.click();
+  await expect(page.getByRole("dialog").getByLabel("论文标题")).toBeFocused();
+  const closeDialog = page
+    .getByRole("dialog")
+    .getByRole("button", { name: "关闭", exact: true });
+  await closeDialog.focus();
+  await page.keyboard.press("Shift+Tab");
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("button", { name: "保存论文", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(closeDialog).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(addPaper).toBeFocused();
+  console.log(
+    "PASS outside click, Escape, menu focus return and modal keyboard navigation",
+  );
   await page.screenshot({
     path: path.join(root, "artifacts", "empty.png"),
     fullPage: true,
@@ -398,6 +437,52 @@ try {
     .getByRole("button", { name: "Markdown 源码", exact: true })
     .click();
   await expect(page.locator(".note-editor")).toBeVisible();
+  // A long document should keep the reading position when changing edit modes.
+  const sourceEditor = page.locator(".note-editor");
+  const sourceBody = await sourceEditor.inputValue();
+  await sourceEditor.fill(
+    sourceBody +
+      "\n\n" +
+      Array.from(
+        { length: 45 },
+        (_, i) => `Scroll fixture paragraph ${i + 1}.\n\n`,
+      ).join(""),
+  );
+  await sourceEditor.evaluate((node) => {
+    node.scrollTop = 480;
+    node.dispatchEvent(new Event("scroll", { bubbles: true }));
+  });
+  const sourceScroll = await sourceEditor.evaluate((node) => node.scrollTop);
+  expect(sourceScroll).toBeGreaterThan(100);
+  await page.getByRole("button", { name: "可视化编辑", exact: true }).click();
+  await expect(
+    page.locator(".note-reading-pane [contenteditable=true]"),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page.locator(".note-reading-pane").evaluate((node) => node.scrollTop),
+    )
+    .toBeGreaterThan(0);
+  await page
+    .getByRole("button", { name: "Markdown 源码", exact: true })
+    .click();
+  await expect
+    .poll(() => sourceEditor.evaluate((node) => node.scrollTop))
+    .toBe(sourceScroll);
+  await sourceEditor.fill(sourceBody);
+  await page
+    .locator(".note-document")
+    .getByRole("button", { name: /保存/ })
+    .click();
+  await expect
+    .poll(
+      async () =>
+        (await app.store.call("get_note", { noteId: originalNote.id })).body,
+    )
+    .toBe(sourceBody);
+  console.log(
+    "PASS document scroll survives source / visual editing roundtrip",
+  );
   const note = await app.store.call("get_note", {
     noteId: app.store.snapshot().notes[0].id,
   });

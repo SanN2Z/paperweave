@@ -16,6 +16,7 @@ import {
   Keyboard,
 } from "lucide-react";
 import TerminalPane from "./TerminalPane";
+import { useDismissable } from "./useWorkbenchInteraction";
 import { creamTheme, darkTheme } from "../shared/terminal-themes";
 
 export default forwardRef(function TerminalDock(
@@ -39,6 +40,7 @@ export default forwardRef(function TerminalDock(
     [split, setSplit] = useState(false),
     [menu, setMenu] = useState(false);
   const [shortcutHelp, setShortcutHelp] = useState(false);
+  const launcherRef = useDismissable(menu, () => setMenu(false));
   const [splitIds, setSplitIds] = useState([]);
   const [width, setWidth] = useState(() => {
     const saved = Number(localStorage.getItem("paperweave.terminalWidth"));
@@ -298,9 +300,10 @@ export default forwardRef(function TerminalDock(
           >
             <Plus size={16} />
           </button>
-          <div className="terminal-launcher">
+          <div className="terminal-launcher" ref={launcherRef}>
             <button
               aria-label="选择终端类型"
+              aria-expanded={menu}
               title="在页面中启动 Codex 或 Claude Code"
               onClick={() => setMenu((v) => !v)}
             >

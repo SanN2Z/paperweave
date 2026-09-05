@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useDismissable } from "./useWorkbenchInteraction";
 import {
   Network,
   BookOpen,
@@ -39,6 +40,7 @@ export default function WorkspaceTabs({
     return ["graph", "writing"];
   });
   const [menu, setMenu] = useState(false);
+  const menuRef = useDismissable(menu, () => setMenu(false));
   useEffect(() => {
     setOpened((tabs) => (tabs.includes(view) ? tabs : [...tabs, view]));
   }, [view]);
@@ -104,7 +106,7 @@ export default function WorkspaceTabs({
           );
         })}
       </div>
-      <div className="new-workspace-tab">
+      <div className="new-workspace-tab" ref={menuRef}>
         <button
           aria-label="新建研究标签页"
           aria-expanded={menu}

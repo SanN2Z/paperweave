@@ -1,5 +1,16 @@
 import React, { useEffect, useRef } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, useEditorState } from "@tiptap/react";
+import {
+  Pilcrow,
+  Heading2,
+  Bold,
+  Italic,
+  List,
+  ListTodo,
+  Quote,
+  Code2,
+  Undo2,
+} from "lucide-react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "@tiptap/markdown";
 import { TableKit } from "@tiptap/extension-table";
@@ -57,17 +68,73 @@ export default function VisualMarkdown({
       });
     }
   }, [value, editor]);
+  const formats = useEditorState({
+    editor,
+    selector: ({ editor }) =>
+      editor
+        ? [
+            "paragraph",
+            "heading",
+            "bold",
+            "italic",
+            "bulletList",
+            "taskList",
+            "blockquote",
+            "codeBlock",
+          ].filter((name) => editor.isActive(name))
+        : [],
+  });
   if (!editor) return null;
   const actions = [
-    ["正文", () => editor.chain().focus().setParagraph().run()],
-    ["标题", () => editor.chain().focus().toggleHeading({ level: 2 }).run()],
-    ["粗体", () => editor.chain().focus().toggleBold().run()],
-    ["斜体", () => editor.chain().focus().toggleItalic().run()],
-    ["列表", () => editor.chain().focus().toggleBulletList().run()],
-    ["待办", () => editor.chain().focus().toggleTaskList().run()],
-    ["引用", () => editor.chain().focus().toggleBlockquote().run()],
-    ["代码", () => editor.chain().focus().toggleCodeBlock().run()],
-    ["撤销", () => editor.chain().focus().undo().run()],
+    [
+      "正文",
+      Pilcrow,
+      "paragraph",
+      () => editor.chain().focus().setParagraph().run(),
+    ],
+    [
+      "标题",
+      Heading2,
+      "heading",
+      () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
+    ],
+    [
+      "粗体 · Ctrl+B",
+      Bold,
+      "bold",
+      () => editor.chain().focus().toggleBold().run(),
+    ],
+    [
+      "斜体 · Ctrl+I",
+      Italic,
+      "italic",
+      () => editor.chain().focus().toggleItalic().run(),
+    ],
+    [
+      "列表",
+      List,
+      "bulletList",
+      () => editor.chain().focus().toggleBulletList().run(),
+    ],
+    [
+      "待办",
+      ListTodo,
+      "taskList",
+      () => editor.chain().focus().toggleTaskList().run(),
+    ],
+    [
+      "引用",
+      Quote,
+      "blockquote",
+      () => editor.chain().focus().toggleBlockquote().run(),
+    ],
+    [
+      "代码",
+      Code2,
+      "codeBlock",
+      () => editor.chain().focus().toggleCodeBlock().run(),
+    ],
+    ["撤销 · Ctrl+Z", Undo2, "undo", () => editor.chain().focus().undo().run()],
   ];
   return (
     <div className="visual-markdown">
@@ -76,14 +143,19 @@ export default function VisualMarkdown({
         role="toolbar"
         aria-label="Markdown 格式"
       >
-        {actions.map(([name, action]) => (
+        {actions.map(([name, Icon, format, action]) => (
           <button
             key={name}
             type="button"
+            title={name}
+            aria-label={name}
+            aria-pressed={
+              format === "undo" ? undefined : formats?.includes(format)
+            }
             onMouseDown={(e) => e.preventDefault()}
             onClick={action}
           >
-            {name}
+            <Icon size={15} strokeWidth={1.6} />
           </button>
         ))}
       </div>

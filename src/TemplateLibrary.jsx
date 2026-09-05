@@ -21,8 +21,8 @@ export default function TemplateLibrary({
     <section className="template-library">
       <header>
         <div>
-          <h2>从好用的组件开始画图</h2>
-          <p>挑选模型图、矢量组件或 PPT 模板，创建副本后和 Agent 一起修改。</p>
+          <h2>绘图模板</h2>
+          <p>选一个起点，和 Agent 一起完成你的图。</p>
         </div>
         <button className="button secondary small" onClick={onImport}>
           <Plus size={14} />
@@ -57,6 +57,7 @@ export default function TemplateLibrary({
         {items.map((t) => (
           <article className="template-card" key={t.id}>
             <button className="template-preview" onClick={() => onOpen(t)}>
+              <span className="template-format">{t.format.toUpperCase()}</span>
               {t.preview ? (
                 <img loading="lazy" src={fileUrl(t.preview)} alt={t.title} />
               ) : (

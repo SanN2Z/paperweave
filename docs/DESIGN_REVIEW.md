@@ -2,6 +2,8 @@
 
 Scope: the implemented local research workbench, captured in Microsoft Edge at 1600×1050 and 1280×800 with 2× pixel density. All papers and result data in these screenshots are labelled synthetic fixtures. This is a review of working UI, not an image-generated concept.
 
+The latest workbench and writing captures show the refreshed light navigation rail, compact tabs, consistent paper cards and a single file/save row above the document. Markdown formatting controls now use icons with active states; menus dismiss on outside click or Escape, and source/visual editing retains scroll position. See [interface conventions](INTERFACE.md). Other workflow screenshots remain evidence for their respective functional checks.
+
 1. **Start a research conversation — working.** A full-height real CLI remains on the right. The large workspace heading and statistics were removed. Compact controls leave the screen to research content and terminal output. [Startup screenshot](images/empty.png).
 2. **Switch research pages — working.** Browser-style tabs support graph, PDF, figures, LaTeX / Markdown writing and notes. Pages can be closed and reopened; the CLI session stays mounted. The paper library and context inspector open as optional drawers. The graph fits the available width and keeps its zoom controls. [Workbench screenshot](images/workbench.png).
 3. **Resize and use the terminal — interaction checks passed.** Moving the vertical divider changes width while the canvas keeps its full height; this is asserted in the browser test. Terminal theme, split, maximize, collapse, input and exit checks pass. The cursor remains steady while focused. Closing the browser page still ends its embedded sessions. [Terminal screenshot](images/terminal.png).
