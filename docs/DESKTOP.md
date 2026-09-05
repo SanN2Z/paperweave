@@ -1,6 +1,6 @@
 # Desktop installation and operations
 
-The first native target is Windows x64. The Tauri host uses WebView2 and bundles Node, production dependencies, PTY binaries, local frontend assets and drawing templates. macOS/Linux desktop installers are not yet validated. Browser/source mode remains available.
+The native targets are Windows x64 and macOS arm64/x64. The Tauri host uses WebView2 on Windows and system WKWebView on macOS, and bundles Node, production dependencies, PTY binaries, local frontend assets and drawing templates. See [VALIDATION.md](VALIDATION.md) for actual executed results; availability of a build target alone is not a completed acceptance test. Linux desktop installers are not yet validated. Browser/source mode remains available.
 
 ## For installation agents
 
@@ -8,12 +8,14 @@ The first native target is Windows x64. The Tauri host uses WebView2 and bundles
 2. Install for the current user. The NSIS package supplies shortcuts and an uninstaller. Its WebView2 bootstrapper installs the Microsoft runtime if it is missing and may require a network connection. Rust and npm are build dependencies, not application-user prerequisites.
 3. Open Paperweave. Select an existing project with the folder button or tray menu. That explicit selection runs the bundled project initialization, preserving experiments and existing MCP entries. A new project opens in its own native window; other windows and sessions remain mounted.
 4. For an external CLI, use **连接 Agent → 复制给 Agent**. The connection contains the bundled Node path, MCP script and exact `PAPERWEAVE_DATA_DIR`, never a token. Merge it into the user's requested client scope. If an existing named entry points elsewhere, resolve the conflict explicitly rather than overwriting unrelated configuration. Keep an existing CLI conversation; newly registered tools may require the client's usual trust/reload step.
-5. Verify a real MCP `get_context` call addresses the selected project. The packaged `scripts/project.js context|call --project PATH` bridge remains available using bundled `runtime/node.exe` when the existing CLI cannot reload MCP.
+5. Verify a real MCP `get_context` call addresses the selected project. The packaged `scripts/project.js context|call --project PATH` bridge remains available using bundled `runtime/node.exe` (Windows) or `runtime/node` (macOS) when the existing CLI cannot reload MCP.
 6. Check the requested CLI and optional LaTeX tools separately. The application does not bundle a Claude/Codex account, a TeX distribution or a research Python environment. Follow [DEPENDENCIES.md](DEPENDENCIES.md) for requested missing research tools.
 
 The default native workspace is under the operating-system application-data directory, outside installed program files. Selected projects retain `.paperweave/` runtime state and `paperweave/vault/` research content. Upgrades must preserve both. Do not move or delete a user's vault when uninstalling the application.
 
 ## Window and process lifetime
+
+On macOS, use the menu bar icon to reopen the workbench, choose a project or open the monitor. Reopening from the Dock restores the existing workbench. Native binaries and Node are built on a runner matching the package architecture; there is no Universal bundle. The declared minimum version is macOS 13.5, matching the bundled Node 24 requirement, but the CI machines currently run macOS 15.
 
 - Closing a workbench or monitor window hides it. The tray restores the existing WebView; embedded terminals remain connected.
 - The monitor's workbench button restores its associated project window. Other projects have separate windows and services.
@@ -46,3 +48,11 @@ Windows build machines need the [Tauri prerequisites](https://v2.tauri.app/start
 After installing a candidate, run `scripts/desktop-check.js` with `PAPERWEAVE_DESKTOP_EXE` set to the installed executable. It uses temporary research and Claude fixtures and WebView2's loopback debugging connection. Node and CLI directories are removed from the application's PATH during this check. It verifies the actual native WebView, PTY, PDF, monitor and hide/restore behavior. Debugging is enabled only for this test process, not in the shipped application configuration. Screenshots under `artifacts/desktop-*.png` are synthetic.
 
 Complete release validation must distinguish these checks from signing, a pristine Windows VM, macOS/Linux support, external terminal focus and unattended updates. Do not present planned capabilities as shipped.
+
+## macOS automated acceptance
+
+The `macOS desktop` workflow uses separate `macos-15` (arm64) and `macos-15-intel` (x64) machines. It stages production dependencies and executable PTY helpers before signing, builds an `.app` and DMG, and runs `scripts/desktop-macos-check.js`. The script mounts the DMG read-only, copies the application to a temporary Unicode installation path, detaches the image, verifies signature integrity, and launches the copied native executable with Node removed from PATH. It checks the native window through WindowServer, a real bundled stdio MCP connection, and the installed application's service through Playwright WebKit (terminal input/output, PDF text and monitor). All research/session inputs are synthetic.
+
+The native screenshot, WebKit screenshot and machine-readable outcome file are uploaded as validation artifacts. A WindowServer/native startup check and a Playwright WebKit interaction check are separate evidence: Playwright does not drive the system WKWebView in the `.app`. Clipboard shortcuts, native monitor pin/collapse, Dock/menu interactions and ordinary Finder installation still need manual Mac acceptance.
+
+Current macOS packages use [Tauri's ad-hoc signing](https://v2.tauri.app/distribute/sign/macos/). This verifies bundle integrity for testing; it is not Developer ID signing or Apple notarization. Do not disable Gatekeeper, strip quarantine or change machine security settings to turn a failed download/installation check into a pass. Production distribution needs signing/notarization separately. Rust/Xcode are build-machine requirements, not application-user requirements.

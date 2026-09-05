@@ -122,7 +122,10 @@ try {
   await expect(page.locator(".topbar")).toBeVisible();
   await expect(page.locator(".terminal-status")).toContainText("本地 Shell");
   const input = page.locator(".xterm-helper-textarea");
-  await input.pressSequentially("printf 'MACOS_PTY_%s\\n' '中文输出'", { delay: 30 });
+  // Keyboard automation does not synthesize a real Chinese IME composition.
+  // Type ASCII and let the real shell emit UTF-8; native IME remains manual.
+  const utf8 = [...Buffer.from("中文输出")].map(byte => `\\0${byte.toString(8).padStart(3, "0")}`).join("");
+  await input.pressSequentially(`printf 'MACOS_PTY_%b\\n' '${utf8}'`, { delay: 30 });
   await input.press("Enter");
   await expect(page.locator(".xterm-accessibility-tree")).toContainText("MACOS_PTY_中文输出", { timeout: 15000 });
   pass("WebKit keyboard input and Chinese output through the bundled native PTY");
