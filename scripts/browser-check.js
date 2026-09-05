@@ -90,6 +90,13 @@ try {
   console.log(
     "PASS monitor source availability, live waiting / working transition and dismissal",
   );
+  const floatingPage = await browser.newPage();
+  await floatingPage.setViewportSize({ width: 370, height: 440 });
+  await floatingPage.goto(`${app.origin}/?monitor=1`);
+  await expect(floatingPage.locator(".monitor-session")).toContainText("工作中");
+  await expect(floatingPage.locator(".session-monitor")).toHaveCSS("font-family", /Segoe UI/);
+  await expect(floatingPage.locator(".terminal-dock")).toHaveCount(0);
+  await floatingPage.close();
   const tabLauncher = page.getByRole("button", { name: "新建研究标签页" });
   await tabLauncher.click();
   await expect(page.locator(".workspace-tab-menu")).toBeVisible();

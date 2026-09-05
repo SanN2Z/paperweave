@@ -1,6 +1,6 @@
 # Desktop distribution direction
 
-Status: proposed product architecture, checked against the current code and upstream sources on 2026-09-05. Paperweave currently ships as source with a local browser workbench. A desktop installer, tray and native monitor window are not implemented yet.
+Status: Windows x64 desktop preview implemented on 2026-09-05. The installed native WebView, bundled Node and PTY, PDF rendering, clipboard, MCP routing, hide/restore and monitor controls have passed local verification. See [DESKTOP.md](DESKTOP.md) for installation and [VALIDATION.md](VALIDATION.md) for evidence limits. Cross-platform native releases, signing, external terminal focusing and automatic updates remain outstanding.
 
 ## Product shape
 

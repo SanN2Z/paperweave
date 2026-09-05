@@ -8,13 +8,17 @@
 
 ## 开始使用
 
+**Windows：**桌面版已支持独立窗口和托盘，无需安装 Node 或 npm。当前测试安装包可从 [Windows desktop 构建产物](https://github.com/shanyuzhe/paperweave/actions/workflows/desktop.yml)获取，正式发布名称尚在确定。关闭窗口会收进托盘，终端继续保留。
+
 把下面这段话发给你的 Agent：
 
 > 把 https://github.com/shanyuzhe/paperweave 接到我当前的科研项目。先读 INSTALL.md，安装缺失依赖，保留我现有的 CLI 会话和实验文件，配置好后告诉我打开哪里。
 
-然后打开 Agent 给你的地址，直接在页面内和 Agent 对话，就可以开始了。
+安装好后，在“连接 Agent”中复制连接信息给当前 CLI，即可继续原来的研究对话。其他系统目前可使用浏览器版，打开 Agent 给你的本地地址。
 
 下次说“启动 Paperweave”即可；也可以在项目目录运行 `npm start`，它会启动服务并打开页面。
+
+桌面版可从快捷方式或托盘打开。“会话监控”可以拆成置顶小浮窗，查看 Claude 会话是否等待处理。Codex 实时监控暂未接入。[桌面版说明](docs/DESKTOP.md)
 
 ## 日常怎么用
 

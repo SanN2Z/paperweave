@@ -1,5 +1,7 @@
 # Agent installation guide
 
+**Windows desktop installation:** Prefer the published Windows x64 preview installer when the user wants a desktop application. Follow [docs/DESKTOP.md](docs/DESKTOP.md): verify the release checksum, install the current-user package, open the existing project and use the exact connection shown by the application. Node and application dependencies are bundled; do not make the user install Rust or npm. Preserve running services and CLI sessions during an upgrade. The source instructions below remain appropriate for development and other platforms.
+
 **Existing research project:** Install the code separately, run `npm ci` and `npm run build`, then `node /absolute/installation/scripts/project.js init --project /absolute/research/project`. Follow [docs/PROJECTS.md](docs/PROJECTS.md). This adds a `paperweave/` notes workspace, private runtime and project MCP entries while preserving experiments. Keep the current external CLI conversation; use the `project.js context|call` bridge if it cannot reload tools. Do not register a global MCP pointing at a different workspace. The standalone steps below apply when no existing research project was supplied.
 
 Install Paperweave as a local workbench. The user owns the machine, CLI settings and Obsidian vault. Do not upload local papers, notes, CLI credentials or `.paperweave/` to GitHub.
