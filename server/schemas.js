@@ -10,6 +10,11 @@ const url = z
     "Use an HTTP(S) URL",
   );
 export const tools = {
+  get_monitor: {
+    description:
+      "Read local Claude session triage. Missing/partial/unsupported sources are explicit. Waiting comes from the registry; transcript activity is an estimate. Never infer Codex approvals or approve anything through this tool.",
+    schema: z.object({ currentProject: z.boolean().optional() }),
+  },
   scan_project: {
     description:
       "Discover existing ARIS or generic research artifacts in configured project sources. Read-only, bounded, skips symlinks. Source files remain canonical; presence does not imply pipeline completion.",

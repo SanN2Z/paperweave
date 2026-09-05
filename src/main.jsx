@@ -58,6 +58,7 @@ import TemplateLibrary from "./TemplateLibrary";
 import "./workbench.css";
 import WorkspaceTabs from "./WorkspaceTabs";
 import { useDocumentScroll } from "./useWorkbenchInteraction";
+import Monitor, { DesktopControls } from "./Monitor";
 const PdfReader = lazy(() => import("./PdfReader"));
 const TerminalDock = lazy(() => import("./TerminalDock"));
 const VisualMarkdown = lazy(() => import("./VisualMarkdown"));
@@ -430,6 +431,7 @@ function App() {
             </button>
           </div>
           <div className="top-actions">
+            <DesktopControls onMonitor={() => setModal({ type: "monitor" })} />
             <span className={`connection ${connection}`}>
               <i />
               {connection === "live" ? "本地实时同步" : "连接中断 · 重连中"}
@@ -1375,6 +1377,11 @@ function App() {
               保存关系
             </button>
           </form>
+        </Modal>
+      )}
+      {modal?.type === "monitor" && (
+        <Modal title="会话监控" onClose={() => setModal(null)}>
+          <Monitor />
         </Modal>
       )}
       {modal?.type === "note" && (
@@ -2944,4 +2951,10 @@ function Writing({ state, act, run, epoch, onDirty, focused, onFocus }) {
     </div>
   );
 }
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(
+  new URLSearchParams(location.search).has("monitor") ? (
+    <Monitor standalone />
+  ) : (
+    <App />
+  ),
+);

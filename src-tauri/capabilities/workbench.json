@@ -1,0 +1,8 @@
+{
+  "identifier": "workbench",
+  "description": "Local workbench windows; native actions are narrowly defined application commands.",
+  "windows": ["launcher", "workbench-*", "monitor-*"],
+  "local": true,
+  "remote": { "urls": ["http://127.0.0.1:*/*"] },
+  "permissions": ["core:default"]
+}

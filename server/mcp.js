@@ -56,6 +56,7 @@ for (const [name, def] of Object.entries(tools))
       annotations: {
         readOnlyHint: [
           "get_context",
+          "get_monitor",
           "list_papers",
           "read_paper",
           "get_note",

@@ -9,6 +9,7 @@ import { extractPdf } from "./pdf.js";
 import { importTemplate, useTemplate } from "./templates.js";
 import { root } from "./config.js";
 import { projectLayout, scanProject, readProjectArtifact } from "./harness.js";
+import { scanMonitor } from "./monitor.js";
 
 const now = () => new Date().toISOString();
 const revision = (body) => createHash("sha256").update(body).digest("hex");
@@ -151,6 +152,7 @@ export class Store extends EventEmitter {
         if (
           ![
             "get_context",
+            "get_monitor",
             "list_papers",
             "read_paper",
             "get_note",
@@ -188,6 +190,7 @@ export class Store extends EventEmitter {
       w = s.activeWorkspaceId,
       stamp = now();
     if (name === "scan_project") return scanProject(this.config);
+    if (name === "get_monitor") return scanMonitor(this.config, a);
     if (name === "read_project_artifact")
       return readProjectArtifact(this.config, a.path);
     if (name === "import_project_paper") {
