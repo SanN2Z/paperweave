@@ -3,7 +3,6 @@ import path from "node:path";
 import os from "node:os";
 import assert from "node:assert/strict";
 import { spawn, execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { webkit, expect } from "@playwright/test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -12,7 +11,14 @@ import { root } from "../server/config.js";
 import { seedDemo, samplePdf } from "../test/fixtures.js";
 
 if (process.platform !== "darwin") throw new Error("Run on a native macOS runner");
-const run = promisify(execFile);
+function run(file, args, { input, ...options } = {}) {
+  return new Promise((resolve, reject) => {
+    const child = execFile(file, args, { timeout: 120000, ...options }, (error, stdout, stderr) =>
+      error ? reject(error) : resolve({ stdout, stderr }));
+    child.stdin.on("error", () => {});
+    child.stdin.end(input);
+  });
+}
 let app;
 if (process.env.PAPERWEAVE_MACOS_APP) app = path.resolve(process.env.PAPERWEAVE_MACOS_APP);
 else {
@@ -22,11 +28,16 @@ else {
   const installation = await fs.mkdtemp(path.join(os.tmpdir(), "paperweave-install-"));
   const mount = path.join(installation, "image");
   await fs.mkdir(mount);
-  await run("/usr/bin/hdiutil", ["attach", "-readonly", "-nobrowse", "-mountpoint", mount, path.join(images, names[0])]);
+  console.log("CHECK mount the generated DMG (accepting the bundled project license)");
+  await run("/usr/bin/hdiutil", ["attach", "-readonly", "-nobrowse", "-mountpoint", mount, path.join(images, names[0])], { input: "Y\n" });
   try {
+    console.log("CHECK copy the application out of the read-only disk image");
     app = path.join(installation, "安装测试", "Paperweave.app");
     await run("/usr/bin/ditto", [path.join(mount, "Paperweave.app"), app]);
-  } finally { await run("/usr/bin/hdiutil", ["detach", mount]); }
+  } finally {
+    console.log("CHECK detach the disk image before launching the installed application");
+    await run("/usr/bin/hdiutil", ["detach", mount]);
+  }
   console.log("PASS disk image mounts and application copies to a Unicode installation path");
 }
 const bundle = path.join(app, "Contents/Resources/paperweave");

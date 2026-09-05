@@ -37,6 +37,7 @@ jobs:
       - run: npm run desktop:build
       - run: npx playwright install webkit
       - name: Verify native app and packaged runtime
+        timeout-minutes: 8
         run: node scripts/desktop-macos-check.js
       - name: Hash disk image
         run: |
