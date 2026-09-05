@@ -53,7 +53,7 @@ await fs.writeFile(
 // Separate profile keeps native WebView storage and MCP state out of the user's work.
 const child = spawn(exe, ["--data-dir", dataDir], {
   windowsHide: true,
-  stdio: "ignore",
+  stdio: ["ignore", "pipe", "pipe"],
   env: {
     ...process.env,
     CLAUDE_CONFIG_DIR: path.join(dir, "claude"),
@@ -62,9 +62,12 @@ const child = spawn(exe, ["--data-dir", dataDir], {
     PATH: `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}\\System32\\WindowsPowerShell\\v1.0`,
   },
 });
+let nativeOutput = "";
+child.stdout.on("data", (chunk) => { nativeOutput += chunk; });
+child.stderr.on("data", (chunk) => { nativeOutput += chunk; });
 let browser, runtime;
 try {
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 200; i++) {
     try {
       browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`, {
         timeout: 1500,
@@ -225,6 +228,9 @@ try {
     "PASS installed application uses bundled Node and exact MCP space routing",
   );
 } catch (error) {
+  console.log("Native host status:", { pid: child.pid, exitCode: child.exitCode });
+  console.log("Native startup:", nativeOutput.replace(/[a-f0-9]{64}/gi, "[redacted]"));
+  console.log("Fixture files:", await fs.readdir(dataDir));
   for (const context of browser?.contexts() || [])
     for (const page of context.pages()) {
       console.log(

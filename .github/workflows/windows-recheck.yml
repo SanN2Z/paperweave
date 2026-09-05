@@ -37,6 +37,21 @@ jobs:
           "PAPERWEAVE_DESKTOP_EXE=$destination\paperweave-desktop.exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Verify installed WebView, images, PTY and MCP
         run: node scripts/desktop-check.js
+      - name: Native runner diagnostics
+        if: failure()
+        shell: pwsh
+        run: |
+          Get-Process | Where-Object { $_.ProcessName -match 'paperweave|msedgewebview' } | Select-Object ProcessName,Id,SessionId,MainWindowTitle
+          Get-ChildItem -LiteralPath 'C:\Program Files (x86)\Microsoft\EdgeWebView\Application' -ErrorAction SilentlyContinue | Select-Object Name
+          Add-Type -AssemblyName System.Windows.Forms
+          Add-Type -AssemblyName System.Drawing
+          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+          $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+          $bitmap.Save((Join-Path (Get-Location) 'artifacts\desktop-runner.png'))
+          $graphics.Dispose()
+          $bitmap.Dispose()
       - uses: actions/upload-artifact@v4
         if: always()
         with:
