@@ -207,7 +207,7 @@ fn main() {
         })
         .build(tauri::generate_context!()).expect("Paperweave desktop initialization failed")
         .run(|app, event| {
-            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event { api.prevent_exit(); }
+            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = &event { api.prevent_exit(); }
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event { show_last(app); }
             #[cfg(not(target_os = "macos"))]
