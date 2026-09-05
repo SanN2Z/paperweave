@@ -66,6 +66,7 @@ let nativeOutput = "";
 child.stdout.on("data", (chunk) => { nativeOutput += chunk; });
 child.stderr.on("data", (chunk) => { nativeOutput += chunk; });
 let browser, runtime;
+let debugError;
 try {
   for (let i = 0; i < 200; i++) {
     try {
@@ -73,13 +74,14 @@ try {
         timeout: 1500,
       });
       break;
-    } catch {
+    } catch (error) {
+      debugError = error.message;
       if (child.exitCode !== null)
         throw new Error("Native host exited before opening its WebView");
       await delay(300);
     }
   }
-  if (!browser) throw new Error("No native WebView debugging endpoint");
+  if (!browser) throw new Error(`No native WebView debugging endpoint: ${debugError}`);
   const context = browser.contexts()[0];
   let page;
   await expect
