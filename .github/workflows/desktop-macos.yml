@@ -44,12 +44,13 @@ jobs:
           cd src-tauri/target/release/bundle/dmg
           shasum -a 256 *.dmg > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: Paperweave-macos-${{ matrix.arch }}
           path: |
             src-tauri/target/release/bundle/dmg/*.dmg
             src-tauri/target/release/bundle/dmg/SHA256SUMS.txt
-          if-no-files-found: error
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: always()
         with:

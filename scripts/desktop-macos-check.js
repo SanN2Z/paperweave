@@ -45,6 +45,8 @@ const node = path.join(bundle, "runtime/node");
 const executable = path.join(app, "Contents/MacOS/paperweave-desktop");
 const artifacts = path.join(root, "artifacts");
 await fs.mkdir(artifacts, { recursive: true });
+const helper = path.join(artifacts, "macos-window-check");
+await run("/usr/bin/swiftc", [path.join(root, "scripts/macos-window.swift"), "-o", helper]);
 const outcomes = [];
 const pass = (text) => { outcomes.push(text); console.log(`PASS ${text}`); };
 const cleanPath = "/usr/bin:/bin:/usr/sbin:/sbin";
@@ -97,8 +99,6 @@ try {
   await fs.writeFile(pdf, samplePdf(4));
   await api("attach_pdf", { paperId: seeded.papers[0].id, path: pdf });
 
-  const helper = path.join(artifacts, "macos-window-check");
-  await run("/usr/bin/swiftc", [path.join(root, "scripts/macos-window.swift"), "-o", helper]);
   let windows;
   await expect.poll(async () => {
     windows = JSON.parse((await run(helper, [String(native.pid)])).stdout);
@@ -154,6 +154,14 @@ try {
     platform: process.platform, arch: process.arch, outcomes, nativeScreenshot,
     limits: ["Ad-hoc signature only; no Developer ID or notarization", "System WKWebView interactions and Finder/Gatekeeper installation require manual acceptance", "WebKit browser assertions are not native WKWebView UI automation"],
   }, null, 2));
+} catch (error) {
+  // Only this CI fixture is inspected; never upload a runtime token or vault.
+  const ownWindows = JSON.parse((await run(helper, [String(native.pid)]).catch(() => ({ stdout: "[]" }))).stdout);
+  console.error("Native test windows:", JSON.stringify(ownWindows));
+  if (ownWindows[0]) await run("/usr/sbin/screencapture", ["-x", "-l", String(ownWindows[0].id), path.join(artifacts, "macos-native-failure.png")]).catch(() => {});
+  const startup = await fs.readFile(path.join(dataDir, "desktop-launch.log"), "utf8").catch(() => "No desktop launch log created");
+  console.error("Fixture startup log:", startup.replace(/token[=:]\S+/gi, "token=[redacted]").slice(-6000));
+  throw error;
 } finally {
   await browser?.close();
   await client?.close();
