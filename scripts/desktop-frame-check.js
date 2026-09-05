@@ -28,6 +28,7 @@ export async function checkDesktopFrame(browser, origin, screenshotPath) {
     await page.getByRole("button", { name: "最小化窗口", exact: true }).click();
     await page.getByRole("button", { name: "收起窗口到托盘", exact: true }).click();
     const calls = await page.evaluate(() => window.__frameCalls);
+    expect(calls).toContain("ready");
     expect(calls.filter(action => action === "toggle_maximize")).toHaveLength(2);
     expect(calls).toContain("minimize");
     expect(calls).toContain("hide");

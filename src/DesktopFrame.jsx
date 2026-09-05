@@ -24,7 +24,7 @@ export default function DesktopFrame({ children }) {
     const sync = () => action("state");
     const focus = () => { setFocused(true); sync(); };
     const blur = () => setFocused(false);
-    sync();
+    action("ready");
     window.addEventListener("resize", sync);
     window.addEventListener("focus", focus);
     window.addEventListener("blur", blur);

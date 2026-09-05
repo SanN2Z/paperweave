@@ -17,6 +17,8 @@ Starting with 0.2.1, the Windows installer includes the paper-owl mascot, brande
 
 Windows workbenches use an integrated title bar with native dragging, double-click maximize, minimize, restore and hide-to-tray controls. Windows supplies the resize border and shadow (rounded corners on Windows 11). Closing still keeps embedded sessions alive. macOS retains native window controls. The mascot is shared by the app, installer, uninstaller, taskbar/tray, launcher and browser favicon.
 
+The host retains OS controls until the frontend signals that its title bar is ready. Attaching to an older running service therefore retains its native title bar and active sessions; the new host does not force-restart it for cosmetic updates.
+
 ## Window and process lifetime
 
 On macOS, use the menu bar icon to reopen the workbench, choose a project or open the monitor. Reopening from the Dock restores the existing workbench. Native binaries and Node are built on a runner matching the package architecture; there is no Universal bundle. The declared minimum version is macOS 13.5, matching the bundled Node 24 requirement, but the CI machines currently run macOS 15.

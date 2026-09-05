@@ -80,7 +80,9 @@ fn launch(app: &tauri::AppHandle, project: Option<String>, override_data: Option
         let title = service.project.as_ref().and_then(|s| std::path::Path::new(s).file_name()).map(|s| format!("{} — Paperweave", s.to_string_lossy())).unwrap_or("Paperweave".into());
         let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
             .title(title).inner_size(1440.0, 960.0).min_inner_size(1000.0, 680.0)
-            .decorations(!cfg!(windows)).shadow(true)
+            // Keep OS controls until the loaded frontend confirms it has replacements.
+            // Reusing an older research service must never strand a borderless window.
+            .shadow(true)
             .initialization_script(if cfg!(windows) {
                 "window.__PAPERWEAVE_DESKTOP__ = true; window.__PAPERWEAVE_CUSTOM_CHROME__ = true;"
             } else { "window.__PAPERWEAVE_DESKTOP__ = true;" })
@@ -170,12 +172,16 @@ fn collapse_monitor(window: WebviewWindow, collapsed: bool) -> Result<(), String
 fn hide_window(window: WebviewWindow) -> Result<(), String> { window.hide().map_err(|e| e.to_string()) }
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum WindowAction { State, Drag, Minimize, ToggleMaximize, Hide }
+enum WindowAction { Ready, State, Drag, Minimize, ToggleMaximize, Hide }
 #[tauri::command]
 fn window_action(window: WebviewWindow, action: WindowAction) -> Result<bool, String> {
     // Always address the calling workbench, never a caller-supplied window label.
     if !window.label().starts_with("workbench-") { return Err("Workbench window required".into()); }
     match action {
+        WindowAction::Ready => {
+            #[cfg(windows)]
+            window.set_decorations(false).map_err(|e| e.to_string())?;
+        },
         WindowAction::State => {},
         WindowAction::Drag => window.start_dragging().map_err(|e| e.to_string())?,
         WindowAction::Minimize => window.minimize().map_err(|e| e.to_string())?,
