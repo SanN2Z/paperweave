@@ -33,6 +33,18 @@ const page = await browser.newPage({
   deviceScaleFactor: 2,
 });
 const errors = [];
+const terminalInputs = [];
+page.on("websocket", (ws) =>
+  ws.on("framesent", ({ payload }) => {
+    const message = JSON.parse(String(payload));
+    if (message.type === "input") terminalInputs.push(message.data);
+  }),
+);
+// Exercise the compatibility build without newer JavaScript convenience APIs.
+await page.addInitScript(() => {
+  Promise.try = undefined;
+  URL.parse = undefined;
+});
 page.on("pageerror", (e) => errors.push(e.message));
 await fs.mkdir(path.join(root, "artifacts"), { recursive: true });
 try {
@@ -160,6 +172,9 @@ try {
   await page.getByRole("button", { name: "重试读取", exact: true }).click();
   await expect(page.locator(".textLayer span").first()).toBeVisible();
   await page.unroute("**/api/files/**");
+  console.log(
+    "PASS PDF recovery and browser compatibility without Promise.try / URL.parse",
+  );
   await page.locator(".textLayer").evaluate((el) => {
     const range = document.createRange();
     range.selectNodeContents(el);
@@ -211,6 +226,71 @@ try {
   if (info.terminalAvailable) {
     await expect(page.locator(".xterm-screen")).toBeVisible();
     await expect(page.locator(".terminal-status")).toContainText("本地 Shell");
+    await page
+      .context()
+      .grantPermissions(["clipboard-read", "clipboard-write"]);
+    const originalClipboard = await page.evaluate(() =>
+      navigator.clipboard.readText(),
+    );
+    try {
+      const shortcuts =
+        process.platform === "darwin"
+          ? ["Meta+v", "Control+Shift+v", "button"]
+          : ["Control+v", "Control+Shift+v", "Shift+Insert", "button"];
+      for (const shortcut of shortcuts) {
+        const marker = `# PDF 加载失败，中文粘贴 ${shortcut}\n# 第二行`;
+        await page.evaluate(
+          (text) => navigator.clipboard.writeText(text),
+          marker,
+        );
+        const start = terminalInputs.length;
+        if (shortcut === "button")
+          await page.getByRole("button", { name: "粘贴", exact: true }).click();
+        else await page.locator(".xterm-helper-textarea").press(shortcut);
+        await expect
+          .poll(() => terminalInputs.slice(start).join(""))
+          .toContain(marker.replace(/\n/g, "\r"));
+        // Allow an accidental second delivery to arrive before checking uniqueness.
+        await page.waitForTimeout(150);
+        const received = terminalInputs.slice(start).join("");
+        expect(received.split("PDF 加载失败").length - 1).toBe(1);
+        expect(received).not.toContain("\x16");
+        await page.locator(".xterm-helper-textarea").press("Control+c");
+      }
+      await page.context().clearPermissions();
+      await page.evaluate(() => {
+        Object.defineProperty(navigator.clipboard, "readText", {
+          configurable: true,
+          value: () =>
+            Promise.reject(new DOMException("Denied", "NotAllowedError")),
+        });
+      });
+      await page.getByRole("button", { name: "粘贴", exact: true }).click();
+      await expect(page.locator(".terminal-clipboard-error")).toContainText(
+        "Ctrl+V",
+      );
+      const nativeStart = terminalInputs.length;
+      await page
+        .locator(".xterm-helper-textarea")
+        .press(process.platform === "darwin" ? "Meta+v" : "Control+v");
+      await expect
+        .poll(() => terminalInputs.slice(nativeStart).join(""))
+        .toContain("PDF 加载失败");
+      await expect(page.locator(".terminal-clipboard-error")).toHaveCount(0);
+      await page.locator(".xterm-helper-textarea").press("Control+c");
+      await page.evaluate(() => delete navigator.clipboard.readText);
+    } finally {
+      await page
+        .context()
+        .grantPermissions(["clipboard-read", "clipboard-write"]);
+      await page.evaluate(
+        (text) => navigator.clipboard.writeText(text),
+        originalClipboard,
+      );
+    }
+    console.log(
+      "PASS real clipboard: Chinese multiline, Ctrl+V, Ctrl+Shift+V, Shift+Insert, button, and denied permission feedback",
+    );
     await page
       .locator(".xterm-helper-textarea")
       .pressSequentially("echo PAPERWEAVE_TERMINAL_OK", { delay: 25 });

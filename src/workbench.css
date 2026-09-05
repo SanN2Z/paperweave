@@ -1188,6 +1188,17 @@ select:focus {
   min-height: 0;
   flex: 1;
 }
+.terminal-clipboard-error {
+  padding: 6px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.pdf-error-detail {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  font-size: 12px;
+}
 .terminal-status {
   color: var(--terminal-fg);
   height: 26px;

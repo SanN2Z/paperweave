@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
-import { getDocument, GlobalWorkerOptions, TextLayer } from "pdfjs-dist";
-import worker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import {
+  getDocument,
+  GlobalWorkerOptions,
+  TextLayer,
+} from "pdfjs-dist/legacy/build/pdf.mjs";
+import worker from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 import "pdfjs-dist/web/pdf_viewer.css";
 import {
   ChevronLeft,
@@ -18,6 +22,7 @@ export default function PdfReader({
   onReplace,
 }) {
   const [retry, setRetry] = useState(0);
+  const [detail, setDetail] = useState("");
   const [doc, setDoc] = useState(null),
     [error, setError] = useState(""),
     [zoom, setZoom] = useState(1.1),
@@ -28,32 +33,42 @@ export default function PdfReader({
     container = useRef();
   useEffect(() => {
     setError("");
+    setDetail("");
     setDoc(null);
+    setCount(0);
     setLoading(true);
-    const task = getDocument({ url, isEvalSupported: false });
+    let task;
     let alive = true;
-    task.promise
+    Promise.resolve()
+      .then(() => {
+        if (!alive) return;
+        task = getDocument({ url, isEvalSupported: false });
+        return task.promise;
+      })
       .then((d) => {
-        if (alive) {
+        if (alive && d) {
           setDoc(d);
           setCount(d.numPages);
         }
       })
       .catch((e) => {
         if (alive) {
+          setDetail(pdfErrorDetail(e));
           setError(
             e.status === 404
               ? "PDF 暂时无法读取，请重试或重新关联文件。"
               : e.status === 401 || e.status === 403
                 ? "连接已更新，请刷新页面后重新打开论文。"
-                : "PDF 加载失败，请重试或更换有效的 PDF 文件。",
+                : /worker|dynamically imported|module script/i.test(e.message)
+                  ? "阅读器组件未能加载，请刷新页面后重试。"
+                  : "PDF 加载失败，请重试；具体原因见下方错误详情。",
           );
           setLoading(false);
         }
       });
     return () => {
       alive = false;
-      task.destroy();
+      task?.destroy().catch(() => {});
     };
   }, [url, retry]);
   useEffect(() => {
@@ -94,6 +109,7 @@ export default function PdfReader({
     })().catch((e) => {
       if (active && e.name !== "RenderingCancelledException") {
         setError("这一页暂时无法渲染，请重试或更换 PDF 文件。");
+        setDetail(pdfErrorDetail(e));
         setLoading(false);
       }
     });
@@ -154,7 +170,12 @@ export default function PdfReader({
         <div className="error-box" role="alert">
           <p>{error}</p>
           <button onClick={() => setRetry((n) => n + 1)}>重试读取</button>
+          <button onClick={() => window.location.reload()}>刷新页面</button>
           {onReplace && <button onClick={onReplace}>重新关联 PDF</button>}
+          <details>
+            <summary>错误详情</summary>
+            <pre className="pdf-error-detail">{detail}</pre>
+          </details>
         </div>
       )}
       <div className="pdf-scroll">
@@ -166,4 +187,12 @@ export default function PdfReader({
       </div>
     </div>
   );
+}
+
+function pdfErrorDetail(error) {
+  // Keep useful renderer diagnostics without leaking a session token in copied text.
+  return `${error.name || "Error"}: ${error.message || "未知错误"}`
+    .replace(/[?&]token=[^\s"'&#)]+/gi, "")
+    .replace(/\b[a-f0-9]{64}\b/gi, "[已隐藏]")
+    .slice(0, 1500);
 }

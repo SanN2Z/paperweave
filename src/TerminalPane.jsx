@@ -9,6 +9,7 @@ export default function TerminalPane({
   theme,
 }) {
   const terminalRef = useRef();
+  const [clipboardError, setClipboardError] = useState("");
   const host = useRef(),
     socket = useRef(),
     [status, setStatus] = useState("连接中"),
@@ -28,6 +29,21 @@ export default function TerminalPane({
     term.loadAddon(fit);
     term.open(host.current);
     terminalRef.current = term;
+    term.attachCustomKeyEventHandler((event) => {
+      const pasteKey =
+        !event.altKey &&
+        (((event.ctrlKey || event.metaKey) &&
+          event.key.toLowerCase() === "v") ||
+          (event.shiftKey && event.key === "Insert"));
+      if (!pasteKey) return true;
+      // Let native paste events deliver Ctrl/Cmd+V and Shift+Insert. Sending
+      // Ctrl+V to the PTY instead swallows the browser paste on Windows.
+      if (event.ctrlKey && event.shiftKey) {
+        event.preventDefault();
+        if (event.type === "keydown") void pasteClipboard();
+      }
+      return false;
+    });
     fit.fit();
     const ws = new WebSocket(wsUrl("/terminal"));
     socket.current = ws;
@@ -83,19 +99,53 @@ export default function TerminalPane({
   useEffect(() => {
     if (terminalRef.current) terminalRef.current.options.theme = theme;
   }, [theme]);
+  async function pasteClipboard() {
+    const term = terminalRef.current;
+    if (!term || socket.current?.readyState !== WebSocket.OPEN) {
+      setClipboardError("终端尚未连接，请连接后重试。");
+      return;
+    }
+    try {
+      const text = await navigator.clipboard.readText();
+      if (terminalRef.current !== term) return;
+      term.paste(text);
+      term.focus();
+      setClipboardError("");
+    } catch {
+      setClipboardError(
+        "浏览器未允许读取剪贴板。请点击终端后按 Ctrl+V（Mac 用 ⌘V），或右键选择粘贴。",
+      );
+      term.focus();
+    }
+  }
   return (
     <div className="terminal-content">
       <div className="terminal-status">
         <i />
         <strong>{status}</strong>
         <span>运行 codex / claude，或你的实验命令</span>
+        <button
+          onClick={pasteClipboard}
+          title="粘贴剪贴板文字（Ctrl+V / Ctrl+Shift+V / ⌘V）"
+        >
+          粘贴
+        </button>
         {status === "会话已结束" ? (
           <button onClick={() => setEpoch((e) => e + 1)}>重新连接</button>
         ) : (
           <button onClick={() => socket.current?.close()}>结束会话</button>
         )}
       </div>
-      <div ref={host} className="terminal-host" />
+      {clipboardError && (
+        <div className="terminal-clipboard-error" role="status">
+          {clipboardError}
+        </div>
+      )}
+      <div
+        ref={host}
+        className="terminal-host"
+        onPasteCapture={() => setClipboardError("")}
+      />
     </div>
   );
 }
