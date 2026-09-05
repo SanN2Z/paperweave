@@ -269,6 +269,7 @@ Function PageReinstall
   ; we are downgrading or not.
   ${If} $PassiveMode = 1
     Call PageLeaveReinstall
+    Abort ; no custom dialog was created; advance to the installation page
   ${Else}
     nsDialogs::Create 1018
     Pop $R4
@@ -311,10 +312,11 @@ Function PageReinstallUpdateSelection
   ${EndIf}
 FunctionEnd
 Function PageLeaveReinstall
-  ${NSD_GetState} $R2 $R1
   ; Passive upgrades must exercise the same uninstall-before-install path as the UI.
   ${If} $PassiveMode = 1
     StrCpy $R1 1
+  ${Else}
+    ${NSD_GetState} $R2 $R1
   ${EndIf}
 
   ; If migrating from Wix, always uninstall
@@ -361,6 +363,10 @@ Function PageLeaveReinstall
     ${Else}
       Call RegisteredInstallLocation
       ${If} $4 == ""
+        ${If} $PassiveMode = 1
+          SetErrorLevel 21
+          Quit
+        ${EndIf}
         BringToFront
         MessageBox MB_ICONEXCLAMATION "$(shanziMissingInstall)"
         Abort
@@ -374,8 +380,9 @@ Function PageLeaveReinstall
       HideWindow
       ; Never pass an empty _?= path or infer the old directory from the new publisher.
       ; /UPDATE also protects research data when invoking a legacy uninstaller.
-      StrCpy $R1 '$\"$4\uninstall.exe$\" /UPDATE'
-      ${IfThen} $PassiveMode = 1 ${|} StrCpy $R1 "$R1 /P" ${|} ; append /P
+      ; The parent already obtained the uninstall choice and session confirmation.
+      ; Run the child silently so legacy confirmation pages cannot block an upgrade.
+      StrCpy $R1 '$\"$4\uninstall.exe$\" /UPDATE /S'
       StrCpy $R1 "$R1 _?=$4" ; append uninstall directory
       ClearErrors
       ExecWait '$R1' $0
@@ -387,6 +394,10 @@ Function PageLeaveReinstall
 
     ${If} $0 <> 0
     ${OrIf} ${FileExists} "$INSTDIR\${MAINBINARYNAME}.exe"
+      ${If} $PassiveMode = 1
+        SetErrorLevel 22
+        Quit
+      ${EndIf}
       ; User cancelled wix uninstaller? return to select un/reinstall page
       ${If} $WixMode = 1
       ${AndIf} $0 = 1602

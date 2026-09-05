@@ -193,13 +193,9 @@ try {
   );
   const source = page.locator(".graph-port").first(),
     target = page.locator(".graph-node").nth(1);
-  // Locator hover waits for the graph's post-reload fit/resize to settle.
-  // Raw coordinates captured during that layout change can miss the port.
-  await source.hover();
-  const targetBox = await target.boundingBox();
-  await page.mouse.down();
-  await page.mouse.move(targetBox.x + 60, targetBox.y + 50, { steps: 8 });
-  await page.mouse.up();
+  // Keep actionability checks attached to pointer-down and pointer-up. The graph
+  // can resize while the terminal reconnects after reload (especially on macOS).
+  await source.dragTo(target, { targetPosition: { x: 60, y: 50 } });
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("dialog").locator('[name="source"]')).toHaveValue(
     seeded.papers[0].id,

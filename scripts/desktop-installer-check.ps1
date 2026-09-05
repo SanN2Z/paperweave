@@ -15,8 +15,26 @@ $sentinel = Join-Path $dataPath 'workspace/vault/synthetic-retention.md'
 Set-Content -LiteralPath $sentinel -Value '# Synthetic fixture: uninstall must preserve research.' -Encoding utf8
 $expectedHash = (Get-FileHash -LiteralPath $sentinel).Hash
 function Invoke-BoundedInstaller([string]$executable, [string]$arguments, [int]$expectedExit = 0) {
+  Write-Output "START $([IO.Path]::GetFileName($executable)) $arguments (expected exit $expectedExit)"
   $process = Start-Process -FilePath $executable -ArgumentList $arguments -WindowStyle Hidden -PassThru
-  if (!$process.WaitForExit(180000)) { throw 'Installer timed out' }
+  if (!$process.WaitForExit(180000)) {
+    # Only disposable runner fixtures exist here; report blocked windows and paths.
+    Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'setup|uninstall|powershell|paperweave' } |
+      Select-Object ProcessId, ParentProcessId, Name, CommandLine | Format-List | Out-String | Write-Output
+    Add-Type -AssemblyName UIAutomationClient
+    Add-Type -AssemblyName UIAutomationTypes
+    $desktop = [Windows.Automation.AutomationElement]::RootElement
+    $windows = $desktop.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition)
+    foreach ($window in $windows) {
+      Write-Output "WINDOW $($window.Current.Name) PID $($window.Current.ProcessId)"
+      if ($window.Current.ProcessId -eq $process.Id -or $window.Current.Name -match 'Paperweave|Shanzi') {
+        $window.FindAll([Windows.Automation.TreeScope]::Descendants, [Windows.Automation.Condition]::TrueCondition) |
+          ForEach-Object { Write-Output "CONTROL $($_.Current.Name)" }
+      }
+    }
+    throw "Installer timed out: $executable $arguments"
+  }
+  Write-Output "EXIT $($process.ExitCode)"
   if ($process.ExitCode -ne $expectedExit) { throw "Installer exit code $($process.ExitCode), expected $expectedExit" }
 }
 $legacy = Get-ChildItem 'artifacts/legacy-installer/*-setup.exe' | Select-Object -First 1
