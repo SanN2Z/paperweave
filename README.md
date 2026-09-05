@@ -10,6 +10,8 @@
 
 **Windows：**桌面版已支持独立窗口和托盘，无需安装 Node 或 npm。当前测试安装包可从 [Windows desktop 构建产物](https://github.com/shanyuzhe/paperweave/actions/workflows/desktop.yml)获取，正式发布名称尚在确定。关闭窗口会收进托盘，终端继续保留。
 
+**macOS：**Apple Silicon 和 Intel 测试包均已通过自动安装、启动与 MCP 验收，详见[测试记录](docs/VALIDATION.md)。当前尚未做 Apple 公证，原生输入法和快捷操作仍需人工体验验收。
+
 把下面这段话发给你的 Agent：
 
 > 把 https://github.com/shanyuzhe/paperweave 接到我当前的科研项目。先读 INSTALL.md，安装缺失依赖，保留我现有的 CLI 会话和实验文件，配置好后告诉我打开哪里。

@@ -1,6 +1,6 @@
 # Desktop distribution direction
 
-Status: Windows x64 desktop preview implemented on 2026-09-05. The installed native WebView, bundled Node and PTY, PDF rendering, clipboard, MCP routing, hide/restore and monitor controls have passed local verification. See [DESKTOP.md](DESKTOP.md) for installation and [VALIDATION.md](VALIDATION.md) for evidence limits. Cross-platform native releases, signing, external terminal focusing and automatic updates remain outstanding.
+Status: Windows x64 desktop preview implemented and locally tested on 2026-09-05. macOS Apple Silicon and Intel DMGs have also passed installation, native window startup and bundled MCP checks on macOS 15 CI machines, with PTY/PDF/monitor interaction checks in Playwright WebKit. System WKWebView interactions still require manual Mac acceptance. See [DESKTOP.md](DESKTOP.md) for installation and [VALIDATION.md](VALIDATION.md) for exact evidence and limits. Linux native releases, publisher signing/notarization, external terminal focusing and automatic updates remain outstanding.
 
 ## Product shape
 
