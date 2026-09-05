@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { stripVTControlCharacters } from "node:util";
 import { startServer } from "../server/index.js";
 import { root } from "../server/config.js";
 import { freePort, seedDemo, samplePdf } from "../test/fixtures.js";
@@ -37,12 +38,26 @@ const page = await browser.newPage({
 });
 const errors = [];
 const terminalInputs = [];
-page.on("websocket", (ws) =>
+const terminalOutputs = [];
+page.on("websocket", (ws) => {
   ws.on("framesent", ({ payload }) => {
     const message = JSON.parse(String(payload));
     if (message.type === "input") terminalInputs.push(message.data);
-  }),
-);
+  });
+  ws.on("framereceived", ({ payload }) => {
+    const message = JSON.parse(String(payload));
+    if (message.type === "data") terminalOutputs.push(message.data);
+  });
+});
+async function cancelShellLine() {
+  const start = terminalOutputs.length;
+  await page.locator(".xterm-helper-textarea").press("Control+c");
+  // ConPTY may discard input while PowerShell handles an interrupt. Wait for
+  // the actual prompt before pasting/typing the next fixture, not a fixed sleep.
+  await expect.poll(() => stripVTControlCharacters(terminalOutputs.slice(start).join("")), {
+    timeout: 10000,
+  }).toMatch(process.platform === "win32" ? /PS [^\r\n]*> / : /[\r\n]/);
+}
 // Exercise the compatibility build without newer JavaScript convenience APIs.
 await page.addInitScript(() => {
   Promise.try = undefined;
@@ -228,7 +243,7 @@ try {
   await expect
     .poll(() => terminalInputs.slice(promptStart).join(""))
     .toContain("refresh_figure");
-  await page.locator(".xterm-helper-textarea").press("Control+c");
+  await cancelShellLine();
   // The fixture uses a Shell: natural language must never be auto-executed there.
   expect(
     terminalInputs.slice(promptStart).filter((x) => x === "\r"),
@@ -406,13 +421,13 @@ try {
     )
     .toBe(true);
   await expect(page.locator(".inspector")).toBeHidden();
-  await page.locator(".xterm-helper-textarea").press("Control+c");
+  await cancelShellLine();
   await page.getByRole("button", { name: "展开笔记", exact: true }).click();
   await page
     .getByLabel("哪里还没想明白？")
     .fill("What does this source passage mean?");
   await page.getByRole("button", { name: "发送给 Agent" }).click();
-  await page.locator(".xterm-helper-textarea").press("Control+c");
+  await cancelShellLine();
   await expect
     .poll(() =>
       app.store
@@ -570,7 +585,7 @@ try {
         const received = terminalInputs.slice(start).join("");
         expect(received.split("PDF 加载失败").length - 1).toBe(1);
         expect(received).not.toContain("\x16");
-        await page.locator(".xterm-helper-textarea").press("Control+c");
+        await cancelShellLine();
       }
       await page.context().clearPermissions();
       await page.evaluate(() => {
@@ -592,7 +607,7 @@ try {
         .poll(() => terminalInputs.slice(nativeStart).join(""))
         .toContain("PDF 加载失败");
       await expect(page.locator(".terminal-clipboard-error")).toHaveCount(0);
-      await page.locator(".xterm-helper-textarea").press("Control+c");
+      await cancelShellLine();
       await page.evaluate(() => delete navigator.clipboard.readText);
     } finally {
       await page

@@ -13,7 +13,22 @@ import { seedDemo, samplePdf } from "../test/fixtures.js";
 
 if (process.platform !== "darwin") throw new Error("Run on a native macOS runner");
 const run = promisify(execFile);
-const app = path.resolve(process.env.PAPERWEAVE_MACOS_APP || "src-tauri/target/release/bundle/macos/Paperweave.app");
+let app;
+if (process.env.PAPERWEAVE_MACOS_APP) app = path.resolve(process.env.PAPERWEAVE_MACOS_APP);
+else {
+  const images = path.join(root, "src-tauri/target/release/bundle/dmg");
+  const names = (await fs.readdir(images)).filter(name => name.endsWith(".dmg"));
+  assert.equal(names.length, 1, "Expected exactly one native disk image");
+  const installation = await fs.mkdtemp(path.join(os.tmpdir(), "paperweave-install-"));
+  const mount = path.join(installation, "image");
+  await fs.mkdir(mount);
+  await run("/usr/bin/hdiutil", ["attach", "-readonly", "-nobrowse", "-mountpoint", mount, path.join(images, names[0])]);
+  try {
+    app = path.join(installation, "安装测试", "Paperweave.app");
+    await run("/usr/bin/ditto", [path.join(mount, "Paperweave.app"), app]);
+  } finally { await run("/usr/bin/hdiutil", ["detach", mount]); }
+  console.log("PASS disk image mounts and application copies to a Unicode installation path");
+}
 const bundle = path.join(app, "Contents/Resources/paperweave");
 const node = path.join(bundle, "runtime/node");
 const executable = path.join(app, "Contents/MacOS/paperweave-desktop");
