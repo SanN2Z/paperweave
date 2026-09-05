@@ -20,6 +20,8 @@ Replace example metadata with real verified data. Save the returned UUID. Use it
 
 Returns `context` (selected paper/page/passage/question/view), the active workspace and its papers, relations, notes, questions, figures, manuscripts and activity. Paper rows contain `pageCount`, not full PDF text; use `read_paper` for text. `get_note` and `get_manuscript` return the actual current source file and a SHA-256 `revision`.
 
+`set_context.view` accepts `graph`, `reader`, `figures`, `writing`, or `notes`. These are research pages in the left workspace. Switching a page opens or activates its browser-style tab; the right CLI session is preserved. `notes` is an additive `paperweave/1` view, using the same `get_note` / `save_note` revision rules.
+
 For writing, `context.manuscriptId` and `context.manuscriptSelection` identify the chosen draft and selected source text. Use `get_manuscript` for its full latest body before editing. For an agent-downloaded PDF, call `attach_pdf` with `{paperId, path}` using an absolute local path; the source file is preserved.
 
 ```json

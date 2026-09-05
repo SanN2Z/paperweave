@@ -25,7 +25,7 @@ const api = async (url, body) => {
   return { res, data: await res.json() };
 };
 before(async () => {
-  dir = await fs.mkdtemp(path.join(os.tmpdir(), "paperweave-integration-"));
+  dir = await fs.mkdtemp(path.join(os.tmpdir(), ".paperweave-integration-"));
   app = await startServer({
     root,
     dataDir: dir,
@@ -146,6 +146,20 @@ test("uploaded PDF text is readable through MCP with page provenance", async () 
   const data = await response.json();
   assert.equal(response.status, 200, JSON.stringify(data));
   assert.equal(data.pages.length, 1);
+  const download = await fetch(`${app.origin}/api/files/${data.pdf}`, {
+    headers: { Authorization: `Bearer ${app.token}` },
+  });
+  assert.equal(
+    download.status,
+    200,
+    "Managed PDFs must be served from the hidden data directory",
+  );
+  assert.match(download.headers.get("content-type"), /application\/pdf/);
+  assert.deepEqual(Buffer.from(await download.arrayBuffer()), samplePdf());
+  assert.equal(
+    (await fetch(`${app.origin}/api/files/${data.pdf}`)).status,
+    401,
+  );
   const result = await client.callTool({
     name: "read_paper",
     arguments: { paperId: p.id, page: 1 },

@@ -34,9 +34,11 @@ export default function TerminalDock({
   const [active, setActive] = useState(1),
     [split, setSplit] = useState(false),
     [menu, setMenu] = useState(false);
-  const [height, setHeight] = useState(() => {
-    const saved = Number(localStorage.getItem("paperweave.terminalHeight"));
-    return saved >= 160 && saved <= 600 ? saved : 285;
+  const [width, setWidth] = useState(() => {
+    const saved = Number(localStorage.getItem("paperweave.terminalWidth"));
+    return saved >= 340 && saved <= 1000
+      ? saved
+      : Math.max(380, Math.round(window.innerWidth * 0.36));
   });
   const nextId = useRef(2),
     dock = useRef(),
@@ -53,13 +55,13 @@ export default function TerminalDock({
         : session?.terminalTheme?.colors || creamTheme;
   const clamp = (v) =>
     Math.min(
-      Math.max(160, v),
-      Math.max(160, (dock.current?.parentElement.clientHeight || 700) - 130),
+      Math.max(340, v),
+      Math.max(340, (dock.current?.parentElement.clientWidth || 1200) * 0.6),
     );
   const resize = (value) => {
-    const h = clamp(value);
-    setHeight(h);
-    localStorage.setItem("paperweave.terminalHeight", String(h));
+    const w = clamp(value);
+    setWidth(w);
+    localStorage.setItem("paperweave.terminalWidth", String(w));
   };
   const add = (command = null, shouldSplit = false) => {
     if (sessions.length >= 4) return;
@@ -94,7 +96,7 @@ export default function TerminalDock({
       ref={dock}
       className={`terminal-dock ${open ? "is-open" : "is-hidden"} ${maximized ? "is-maximized" : ""}`}
       style={{
-        "--terminal-height": `${height}px`,
+        "--terminal-width": `${width}px`,
         "--terminal-bg": palette.background,
         "--terminal-fg": palette.foreground,
       }}
@@ -104,24 +106,24 @@ export default function TerminalDock({
         <div
           className="terminal-resizer"
           role="separator"
-          aria-label="调整终端高度"
-          aria-orientation="horizontal"
-          aria-valuemin={160}
+          aria-label="调整终端宽度"
+          aria-orientation="vertical"
+          aria-valuemin={340}
           aria-valuemax={Math.round(
             Math.max(
-              160,
-              (dock.current?.parentElement.clientHeight || 700) - 130,
+              340,
+              (dock.current?.parentElement.clientWidth || 1200) * 0.6,
             ),
           )}
-          aria-valuenow={Math.round(height)}
+          aria-valuenow={Math.round(width)}
           tabIndex={0}
           onPointerDown={(e) => {
-            drag.current = { y: e.clientY, height };
+            drag.current = { x: e.clientX, width };
             e.currentTarget.setPointerCapture(e.pointerId);
           }}
           onPointerMove={(e) => {
             if (drag.current)
-              resize(drag.current.height + drag.current.y - e.clientY);
+              resize(drag.current.width + drag.current.x - e.clientX);
           }}
           onPointerUp={(e) => {
             drag.current = null;
@@ -131,9 +133,9 @@ export default function TerminalDock({
             drag.current = null;
           }}
           onKeyDown={(e) => {
-            if (["ArrowUp", "ArrowDown"].includes(e.key)) {
+            if (["ArrowLeft", "ArrowRight"].includes(e.key)) {
               e.preventDefault();
-              resize(height + (e.key === "ArrowUp" ? 20 : -20));
+              resize(width + (e.key === "ArrowLeft" ? 20 : -20));
             }
           }}
         />

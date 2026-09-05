@@ -129,7 +129,9 @@ export const tools = {
       page: z.number().int().positive().optional(),
       selection: z.string().max(10000).optional(),
       question: z.string().max(10000).optional(),
-      view: z.enum(["graph", "reader", "figures", "writing"]).optional(),
+      view: z
+        .enum(["graph", "reader", "figures", "writing", "notes"])
+        .optional(),
     }),
   },
   add_question: {

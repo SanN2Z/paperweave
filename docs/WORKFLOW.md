@@ -28,6 +28,8 @@ Download source PDFs using your existing CLI tools, then call `attach_pdf` with 
 
 ## 3. Build an explainable map
 
+The workbench keeps a real CLI on the right and research tabs on the left. Use `set_context` with `view: graph|reader|figures|writing|notes` to show the relevant page without interrupting the CLI. The notes page is a view of the same local Markdown knowledge base, not a separate store.
+
 Use `add_relation` with a **direction** (source → target), a relation type and a concise explanation. The label applies from source to target: `A extends B` means A extends B. Available kinds: `extends`, `supports`, `contradicts`, `uses`, `compares`.
 
 - `evidence`: a specific source passage, section, figure, table or DOI/URL that supports the relationship. `page` is an optional page in the source paper.

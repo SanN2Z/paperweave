@@ -19,7 +19,7 @@ export default function TerminalPane({
       fontFamily: "Cascadia Code, SFMono-Regular, Consolas, monospace",
       fontSize: 14,
       lineHeight: 1.25,
-      cursorBlink: true,
+      cursorBlink: false,
       screenReaderMode: true,
       theme,
       scrollback: 6000,

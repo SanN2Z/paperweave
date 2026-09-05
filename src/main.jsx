@@ -47,6 +47,7 @@ import {
 } from "./api";
 import "./style.css";
 import "./workbench.css";
+import WorkspaceTabs from "./WorkspaceTabs";
 const PdfReader = lazy(() => import("./PdfReader"));
 const TerminalDock = lazy(() => import("./TerminalDock"));
 const statusText = { unread: "待读", reading: "精读中", reviewed: "已梳理" };
@@ -129,6 +130,8 @@ function App() {
   const reconnect = useRef(),
     loadedWorkspace = useRef();
   const [terminalMaximized, setTerminalMaximized] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [draftDirty, setDraftDirty] = useState(false);
   useEffect(() => {
     if (state?.context?.view) setTab(state.context.view);
@@ -207,6 +210,11 @@ function App() {
   const focus = (p, view) => {
     fire("set_context", { paperId: p.id, ...(view ? { view } : {}) });
     if (view) setTab(view);
+    setLibraryOpen(false);
+    if (!view) {
+      setInspectorTab("paper");
+      setInspectorOpen(true);
+    }
   };
   const work = state?.workspaces.find((w) => w.id === state.activeWorkspaceId),
     paper = state?.papers.find((p) => p.id === state.context.paperId);
@@ -262,6 +270,7 @@ function App() {
             ["reader", BookOpen, "论文精读"],
             ["figures", Image, "科研图件"],
             ["writing", PenLine, "论文写作"],
+            ["notes", FileText, "研究笔记"],
           ].map(([key, Icon, label]) => (
             <button
               key={key}
@@ -346,547 +355,612 @@ function App() {
             </button>
           </div>
         </header>
-        <section className="workspace-heading">
-          <div>
-            <div className="eyebrow">RESEARCH WORKSPACE</div>
-            <h1>
-              {work.title}
-              <span className="workspace-tag">研究工作台</span>
-            </h1>
-            <p>
-              {work.question ||
-                "从一篇论文开始，让每一次阅读、思考与发现自然相连。"}
-            </p>
-          </div>
-          <div className="metrics">
-            <div>
-              <strong>{state.papers.length.toString().padStart(2, "0")}</strong>
-              <span>篇论文</span>
-            </div>
-            <div>
-              <strong>
-                {state.relations.length.toString().padStart(2, "0")}
-              </strong>
-              <span>条脉络</span>
-            </div>
-            <div>
-              <strong>{state.notes.length.toString().padStart(2, "0")}</strong>
-              <span>篇笔记</span>
-            </div>
-          </div>
-        </section>
-        <nav className="viewbar">
-          <div>
-            {[
-              ["graph", Network, "脉络画布"],
-              ["reader", BookOpen, "论文精读"],
-              ["figures", Image, "科研图件"],
-              ["writing", PenLine, "论文写作"],
-            ].map(([key, Icon, label]) => (
-              <button
-                key={key}
-                className={tab === key ? "selected" : ""}
-                onClick={() => {
-                  setTab(key);
-                  fire("set_context", { view: key });
-                }}
-              >
-                <Icon size={16} />
-                {label}
-                {key === "figures" && state.figures.length > 0 && (
-                  <span className="count">{state.figures.length}</span>
-                )}
-              </button>
-            ))}
-          </div>
-          <span className="workspace-hint">
-            <FolderOpen size={14} /> Markdown · Obsidian 兼容
-          </span>
-        </nav>
-        <div className="workbench">
-          <aside className="library">
-            <div className="pane-heading">
-              <h2>
-                论文库 <span>{state.papers.length}</span>
-              </h2>
-              <button
-                aria-label="添加论文"
-                onClick={() => setModal({ type: "paper" })}
-              >
-                <Plus size={16} />
-              </button>
-            </div>
-            <label className="search">
-              <Search size={15} />
-              <input
-                aria-label="搜索论文"
-                placeholder="搜索标题、作者、标签…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </label>
-            <div className="library-label">
-              全部论文 <span>最近更新</span>
-            </div>
-            <div className="paper-list">
-              {filtered.length ? (
-                filtered.map((p) => (
+        <div
+          className={`workbench horizontal-workbench ${terminalMaximized && terminal ? "terminal-maximized" : ""}`}
+        >
+          <div className="research-column">
+            <WorkspaceTabs
+              key={state.activeWorkspaceId}
+              workspaceId={state.activeWorkspaceId}
+              view={tab}
+              paperTitle={paper?.title}
+              onView={(view) => {
+                setTab(view);
+                fire("set_context", { view });
+              }}
+            >
+              <div className="research-panel-actions">
+                <button
+                  aria-label="论文库"
+                  aria-expanded={libraryOpen}
+                  className={libraryOpen ? "selected" : ""}
+                  onClick={() => {
+                    setLibraryOpen((v) => !v);
+                    setInspectorOpen(false);
+                  }}
+                  title="展开论文库"
+                >
+                  <FolderOpen size={16} />
+                </button>
+                <button
+                  aria-label="展开论文详情"
+                  aria-expanded={inspectorOpen && inspectorTab === "paper"}
+                  onClick={() => {
+                    setInspectorOpen((v) =>
+                      inspectorTab === "paper" ? !v : true,
+                    );
+                    setInspectorTab("paper");
+                    setLibraryOpen(false);
+                  }}
+                  title="论文详情"
+                >
+                  <FileText size={16} />
+                </button>
+                <button
+                  aria-label="展开笔记"
+                  aria-expanded={inspectorOpen && inspectorTab === "notes"}
+                  onClick={() => {
+                    setInspectorOpen((v) =>
+                      inspectorTab === "notes" ? !v : true,
+                    );
+                    setInspectorTab("notes");
+                    setLibraryOpen(false);
+                  }}
+                  title="笔记与讨论"
+                >
+                  <MessageSquare size={16} />
+                </button>
+              </div>
+            </WorkspaceTabs>
+            <div className="research-content">
+              <aside className="library" hidden={!libraryOpen}>
+                <div className="pane-heading">
+                  <h2>
+                    论文库 <span>{state.papers.length}</span>
+                  </h2>
                   <button
-                    key={p.id}
-                    className={`paper-card ${paper?.id === p.id ? "selected" : ""}`}
-                    onClick={() => focus(p)}
+                    aria-label="收起论文库"
+                    onClick={() => setLibraryOpen(false)}
                   >
-                    <div className="paper-card-meta">
-                      <span className={`status ${p.status}`}>
-                        <i />
-                        {statusText[p.status]}
-                      </span>
-                      <span>{p.year || "年份待补充"}</span>
-                    </div>
-                    <h3>{p.title}</h3>
-                    <p>
-                      {p.summary ||
-                        p.abstract ||
-                        "等待阅读 · 让 agent 补充摘要与核心贡献"}
-                    </p>
-                    <div className="paper-card-footer">
-                      <span>{p.tags?.[0] || "未分类"}</span>
-                      <span>
-                        <FileText size={12} />
-                        {p.pageCount ? `${p.pageCount} 页` : "元数据"}
-                      </span>
-                    </div>
+                    <X size={16} />
                   </button>
-                ))
-              ) : (
-                <div className="library-empty">
-                  <BookOpen size={24} />
-                  <p>{search ? "没有匹配的论文" : "论文会在这里慢慢积累"}</p>
-                  <button onClick={() => setModal({ type: "paper" })}>
-                    添加第一篇 <ArrowRight size={14} />
+                  <button
+                    aria-label="添加论文"
+                    onClick={() => setModal({ type: "paper" })}
+                  >
+                    <Plus size={16} />
                   </button>
                 </div>
-              )}
-            </div>
-            <div className="library-bottom">
-              <div>
-                <span className="mini-icon">
-                  <Sparkles size={15} />
-                </span>
-                <strong>让阅读留下痕迹</strong>
-              </div>
-              <p>
-                让 agent 读原文、建立关系，
-                <br />
-                把“终于懂了”留成一篇笔记。
-              </p>
-              <button onClick={() => setModal({ type: "workflow" })}>
-                查看研究工作流 <ArrowUpRight size={14} />
-              </button>
-            </div>
-          </aside>
-          <div
-            className={`editor-column ${terminalMaximized && terminal ? "terminal-maximized" : ""}`}
-          >
-            <main className="canvas-area">
-              {tab === "graph" && (
-                <Graph
-                  onTalk={() => {
-                    setTerminal(true);
-                    requestAnimationFrame(() =>
-                      document
-                        .querySelector(
-                          ".terminal-session:not([hidden]) .xterm-helper-textarea",
-                        )
-                        ?.focus(),
-                    );
-                  }}
-                  state={state}
-                  filtered={filtered}
-                  focus={focus}
-                  onAdd={() => setModal({ type: "paper" })}
-                  onRelation={() => setModal({ type: "relation" })}
-                />
-              )}
-              {tab === "reader" &&
-                (paper ? (
-                  <div className="reader-wrap">
-                    <div className="pane-heading reader-title">
-                      <div>
-                        <small>READING ROOM</small>
-                        <h2>{paper.title}</h2>
-                      </div>
+                <label className="search">
+                  <Search size={15} />
+                  <input
+                    aria-label="搜索论文"
+                    placeholder="搜索标题、作者、标签…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </label>
+                <div className="library-label">
+                  全部论文 <span>最近更新</span>
+                </div>
+                <div className="paper-list">
+                  {filtered.length ? (
+                    filtered.map((p) => (
                       <button
-                        className="button secondary small"
-                        onClick={() => setModal({ type: "pdf", paper })}
+                        key={p.id}
+                        className={`paper-card ${paper?.id === p.id ? "selected" : ""}`}
+                        onClick={() => focus(p)}
                       >
-                        <Upload size={14} />
-                        {paper.pdf ? "更换 PDF" : "导入 PDF"}
+                        <div className="paper-card-meta">
+                          <span className={`status ${p.status}`}>
+                            <i />
+                            {statusText[p.status]}
+                          </span>
+                          <span>{p.year || "年份待补充"}</span>
+                        </div>
+                        <h3>{p.title}</h3>
+                        <p>
+                          {p.summary ||
+                            p.abstract ||
+                            "等待阅读 · 让 agent 补充摘要与核心贡献"}
+                        </p>
+                        <div className="paper-card-footer">
+                          <span>{p.tags?.[0] || "未分类"}</span>
+                          <span>
+                            <FileText size={12} />
+                            {p.pageCount ? `${p.pageCount} 页` : "元数据"}
+                          </span>
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="library-empty">
+                      <BookOpen size={24} />
+                      <p>
+                        {search ? "没有匹配的论文" : "论文会在这里慢慢积累"}
+                      </p>
+                      <button onClick={() => setModal({ type: "paper" })}>
+                        添加第一篇 <ArrowRight size={14} />
                       </button>
                     </div>
-                    {paper.pdf ? (
-                      <Suspense
-                        fallback={<p className="muted padded">加载阅读器…</p>}
-                      >
-                        <PdfReader
-                          key={paper.id}
-                          url={fileUrl(paper.pdf)}
-                          page={state.context.page}
-                          onPage={(page) =>
-                            fire("set_context", { page, selection: "" })
-                          }
-                          onSelection={(selection, page) => {
-                            fire("set_context", { selection, page });
-                            setInspectorTab("notes");
-                          }}
-                        />
-                      </Suspense>
+                  )}
+                </div>
+                <div className="library-bottom">
+                  <div>
+                    <span className="mini-icon">
+                      <Sparkles size={15} />
+                    </span>
+                    <strong>让阅读留下痕迹</strong>
+                  </div>
+                  <p>
+                    让 agent 读原文、建立关系，
+                    <br />
+                    把“终于懂了”留成一篇笔记。
+                  </p>
+                  <button onClick={() => setModal({ type: "workflow" })}>
+                    查看研究工作流 <ArrowUpRight size={14} />
+                  </button>
+                </div>
+              </aside>
+              <div className="editor-column">
+                <main
+                  className="canvas-area"
+                  id="research-panel"
+                  role="tabpanel"
+                  aria-labelledby={`view-tab-${tab}`}
+                >
+                  {tab === "graph" && (
+                    <Graph
+                      onTalk={() => {
+                        setTerminal(true);
+                        requestAnimationFrame(() =>
+                          document
+                            .querySelector(
+                              ".terminal-session:not([hidden]) .xterm-helper-textarea",
+                            )
+                            ?.focus(),
+                        );
+                      }}
+                      state={state}
+                      filtered={filtered}
+                      focus={focus}
+                      onAdd={() => setModal({ type: "paper" })}
+                      onRelation={() => setModal({ type: "relation" })}
+                    />
+                  )}
+                  {tab === "reader" &&
+                    (paper ? (
+                      <div className="reader-wrap">
+                        <div className="pane-heading reader-title">
+                          <div>
+                            <small>READING ROOM</small>
+                            <h2>{paper.title}</h2>
+                          </div>
+                          <button
+                            className="button secondary small"
+                            onClick={() => setModal({ type: "pdf", paper })}
+                          >
+                            <Upload size={14} />
+                            {paper.pdf ? "更换 PDF" : "导入 PDF"}
+                          </button>
+                        </div>
+                        {paper.pdf ? (
+                          <Suspense
+                            fallback={
+                              <p className="muted padded">加载阅读器…</p>
+                            }
+                          >
+                            <PdfReader
+                              onReplace={() => setModal({ type: "pdf", paper })}
+                              key={paper.id}
+                              url={fileUrl(paper.pdf)}
+                              page={state.context.page}
+                              onPage={(page) =>
+                                fire("set_context", { page, selection: "" })
+                              }
+                              onSelection={(selection, page) => {
+                                fire("set_context", { selection, page });
+                                setInspectorTab("notes");
+                                setInspectorOpen(true);
+                                setLibraryOpen(false);
+                              }}
+                            />
+                          </Suspense>
+                        ) : (
+                          <div className="reading-summary">
+                            <span className="eyebrow">PAPER OVERVIEW</span>
+                            <h2>{paper.title}</h2>
+                            <p className="muted">
+                              {paper.authors} {paper.year && `· ${paper.year}`}
+                            </p>
+                            {paper.url && (
+                              <a
+                                className="text-link"
+                                href={paper.url}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                打开来源 <ExternalLink size={13} />
+                              </a>
+                            )}
+                            <section>
+                              <h3>摘要</h3>
+                              <Markdown
+                                text={
+                                  paper.abstract ||
+                                  paper.summary ||
+                                  "尚未补充摘要。连接 agent 或点击右侧编辑。"
+                                }
+                              />
+                            </section>
+                            <button
+                              className="button secondary"
+                              onClick={() => setModal({ type: "pdf", paper })}
+                            >
+                              <Upload size={16} /> 导入 PDF，开始划选精读
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     ) : (
-                      <div className="reading-summary">
-                        <span className="eyebrow">PAPER OVERVIEW</span>
-                        <h2>{paper.title}</h2>
-                        <p className="muted">
-                          {paper.authors} {paper.year && `· ${paper.year}`}
+                      <Empty
+                        title="选一篇论文，深入一点"
+                        action={
+                          <button
+                            className="button primary"
+                            onClick={() => setModal({ type: "paper" })}
+                          >
+                            <Plus size={15} />
+                            添加论文
+                          </button>
+                        }
+                      >
+                        点击左侧论文，即可阅读原文、划选段落和记录疑问。
+                      </Empty>
+                    ))}
+                  {tab === "figures" && (
+                    <Figures
+                      state={state}
+                      act={act}
+                      setModal={setModal}
+                      copy={copy}
+                    />
+                  )}
+                  {tab === "notes" && (
+                    <div className="notes-view">
+                      <header>
+                        <h2>研究笔记</h2>
+                        <button
+                          className="button secondary small"
+                          onClick={() => setModal({ type: "note", paper })}
+                        >
+                          <Plus size={15} />
+                          新建笔记
+                        </button>
+                      </header>
+                      {state.notes.length ? (
+                        <div className="notes-grid">
+                          {state.notes.map((note) => (
+                            <button
+                              key={note.id}
+                              className="research-note-card"
+                              onClick={() =>
+                                setModal({ type: "edit-note", note })
+                              }
+                            >
+                              <FileText size={20} />
+                              <strong>{note.title}</strong>
+                              <span>
+                                {noteKinds[note.kind] || "研究笔记"} ·{" "}
+                                {note.paperIds.length} 篇关联论文
+                              </span>
+                              <small>
+                                {state.papers
+                                  .filter((p) => note.paperIds.includes(p.id))
+                                  .map((p) => p.title)
+                                  .join(" · ") || "工作区笔记"}
+                              </small>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <Empty title="把讨论留下来" icon={FileText}>
+                          对右侧 Agent
+                          说：“把刚才讨论的内容记成笔记，关联到论文。”
+                        </Empty>
+                      )}
+                    </div>
+                  )}
+                  <div className="writing-host" hidden={tab !== "writing"}>
+                    <Writing
+                      key={state.activeWorkspaceId}
+                      state={state}
+                      act={act}
+                      run={run}
+                      epoch={noteEpoch}
+                      onDirty={setDraftDirty}
+                    />
+                  </div>
+                </main>
+              </div>
+              <aside className="inspector" hidden={!inspectorOpen}>
+                <div className="inspector-tabs">
+                  <button
+                    aria-label="收起详情面板"
+                    className="close-inspector"
+                    onClick={() => setInspectorOpen(false)}
+                  >
+                    <X size={16} />
+                  </button>
+                  <button
+                    className={inspectorTab === "paper" ? "selected" : ""}
+                    onClick={() => setInspectorTab("paper")}
+                  >
+                    论文详情
+                  </button>
+                  <button
+                    className={inspectorTab === "notes" ? "selected" : ""}
+                    onClick={() => setInspectorTab("notes")}
+                  >
+                    笔记与讨论 <span>{state.notes.length}</span>
+                  </button>
+                  <button
+                    className={inspectorTab === "activity" ? "selected" : ""}
+                    onClick={() => setInspectorTab("activity")}
+                    aria-label="研究动态"
+                  >
+                    <Activity size={15} />
+                  </button>
+                </div>
+                <div className="inspector-scroll">
+                  {inspectorTab === "paper" &&
+                    (paper ? (
+                      <>
+                        <div className="detail-heading">
+                          <span className={`status ${paper.status}`}>
+                            <i />
+                            {statusText[paper.status]}
+                          </span>
+                          <button
+                            className="text-button"
+                            onClick={() => setModal({ type: "paper", paper })}
+                          >
+                            <PenLine size={13} /> 编辑
+                          </button>
+                        </div>
+                        <h2 className="detail-title">{paper.title}</h2>
+                        <p className="authors">
+                          {paper.authors || "作者待补充"}
+                          {paper.year && ` · ${paper.year}`}
                         </p>
+                        <div className="tags">
+                          {paper.tags?.map((t) => (
+                            <span key={t}>{t}</span>
+                          ))}
+                        </div>
                         {paper.url && (
                           <a
-                            className="text-link"
+                            className="source-link"
                             href={paper.url}
                             target="_blank"
                             rel="noreferrer"
                           >
-                            打开来源 <ExternalLink size={13} />
+                            <Link size={14} />
+                            <span>查看论文来源</span>
+                            <ArrowUpRight size={14} />
                           </a>
                         )}
-                        <section>
-                          <h3>摘要</h3>
-                          <Markdown
-                            text={
-                              paper.abstract ||
-                              paper.summary ||
-                              "尚未补充摘要。连接 agent 或点击右侧编辑。"
+                        {[
+                          ["摘要", paper.abstract || paper.summary],
+                          ["核心方法", paper.method],
+                          ["主要发现", paper.findings],
+                          ["局限与开放问题", paper.limitations],
+                        ].map(([label, text]) => (
+                          <section className="detail-section" key={label}>
+                            <h3>{label}</h3>
+                            <Markdown text={text || "尚未梳理，等待补充。"} />
+                          </section>
+                        ))}
+                        <div className="reading-actions">
+                          <button
+                            className="button primary"
+                            onClick={() => focus(paper, "reader")}
+                          >
+                            <BookOpen size={15} />
+                            精读这篇论文
+                          </button>
+                          <button
+                            className="button secondary"
+                            onClick={() => setModal({ type: "note", paper })}
+                          >
+                            <PenLine size={15} />
+                            记一笔
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <Empty title="思考，从连接开始" icon={Layers}>
+                        选择一篇论文，查看摘要、核心贡献和它在领域中的位置。
+                      </Empty>
+                    ))}
+                  {inspectorTab === "notes" && (
+                    <>
+                      {state.context.selection && (
+                        <div className="selection-card">
+                          <span>
+                            <MessageSquare size={14} />
+                            当前选中 · p. {state.context.page}
+                          </span>
+                          <blockquote>{state.context.selection}</blockquote>
+                          <button
+                            className="text-button"
+                            onClick={() =>
+                              fire("set_context", { selection: "" })
                             }
-                          />
-                        </section>
+                          >
+                            清除选中
+                          </button>
+                        </div>
+                      )}
+                      <form
+                        className="question-form"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const f = e.currentTarget;
+                          const question = new FormData(f).get("question");
+                          act(
+                            "add_question",
+                            {
+                              paperId: paper?.id || null,
+                              question,
+                              quote: state.context.selection || "",
+                              page: state.context.page,
+                            },
+                            "问题已加入上下文，让 agent 读取 get_context 即可继续讨论",
+                          )
+                            .then(() => f.reset())
+                            .catch(() => {});
+                        }}
+                      >
+                        <label htmlFor="question-input">哪里还没想明白？</label>
+                        <textarea
+                          id="question-input"
+                          name="question"
+                          required
+                          maxLength={500}
+                          placeholder="为什么这里使用这个损失函数？与上一篇有什么不同？"
+                        />
+                        <button className="button primary small" type="submit">
+                          <Plus size={14} />
+                          交给 Agent 的上下文
+                        </button>
+                      </form>
+                      <div className="section-title">
+                        <h3>研究笔记</h3>
                         <button
-                          className="button secondary"
-                          onClick={() => setModal({ type: "pdf", paper })}
+                          aria-label="新建笔记"
+                          onClick={() => setModal({ type: "note", paper })}
                         >
-                          <Upload size={16} /> 导入 PDF，开始划选精读
+                          <Plus size={16} />
                         </button>
                       </div>
-                    )}
+                      {state.notes
+                        .filter((n) => !paper || n.paperIds.includes(paper.id))
+                        .map((n) => (
+                          <button
+                            key={n.id}
+                            className="note-item"
+                            onClick={() =>
+                              setModal({ type: "edit-note", note: n })
+                            }
+                          >
+                            <FileText size={17} />
+                            <div>
+                              <strong>{n.title}</strong>
+                              <small>
+                                {noteKinds[n.kind]} ·{" "}
+                                {new Date(n.updatedAt).toLocaleDateString()}
+                              </small>
+                            </div>
+                            <ChevronRight size={14} />
+                          </button>
+                        ))}
+                      {!state.notes.length && (
+                        <p className="muted small-text">
+                          讨论后，让 agent 把理解写成笔记。也可以直接点击 +
+                          记录。
+                        </p>
+                      )}
+                      <div className="section-title">
+                        <h3>待解问题</h3>
+                        <span>
+                          {
+                            state.questions.filter((q) => q.status === "open")
+                              .length
+                          }
+                        </span>
+                      </div>
+                      {state.questions
+                        .filter((q) => !paper || q.paperId === paper.id)
+                        .map((q) => (
+                          <div
+                            className={`question-item ${q.status}`}
+                            key={q.id}
+                          >
+                            {q.status === "resolved" ? (
+                              <CheckCircle2 size={15} />
+                            ) : (
+                              <Clock size={15} />
+                            )}
+                            <div>
+                              {q.question}
+                              <small>
+                                {q.status === "resolved"
+                                  ? "已沉淀为笔记"
+                                  : "等待讨论"}
+                                {q.page && ` · p. ${q.page}`}
+                              </small>
+                            </div>
+                          </div>
+                        ))}
+                    </>
+                  )}
+                  {inspectorTab === "activity" && (
+                    <>
+                      <div className="section-title">
+                        <h3>研究动态</h3>
+                        <span className="live-dot" />
+                      </div>
+                      {state.activity.length ? (
+                        state.activity.map((a) => (
+                          <div className="activity-item" key={a.id}>
+                            <span />
+                            <div>
+                              <p>{a.message}</p>
+                              <small>
+                                {new Date(a.createdAt).toLocaleTimeString()}
+                              </small>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="muted">
+                          Agent 的阅读进展、图谱更新和你的笔记会实时出现在这里。
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="vault-footer">
+                  <span className="vault-dot" />
+                  <div>
+                    <strong>你的笔记，留在本地</strong>
+                    <small title={state.vault}>
+                      Markdown · Obsidian 双向同步
+                    </small>
                   </div>
-                ) : (
-                  <Empty
-                    title="选一篇论文，深入一点"
-                    action={
-                      <button
-                        className="button primary"
-                        onClick={() => setModal({ type: "paper" })}
-                      >
-                        <Plus size={15} />
-                        添加论文
-                      </button>
-                    }
+                  <button
+                    title="查看 Obsidian 设置"
+                    onClick={() => setModal({ type: "settings" })}
                   >
-                    点击左侧论文，即可阅读原文、划选段落和记录疑问。
-                  </Empty>
-                ))}
-              {tab === "figures" && (
-                <Figures
-                  state={state}
-                  act={act}
-                  setModal={setModal}
-                  copy={copy}
-                />
-              )}
-              <div className="writing-host" hidden={tab !== "writing"}>
-                <Writing
-                  key={state.activeWorkspaceId}
-                  state={state}
-                  act={act}
-                  run={run}
-                  epoch={noteEpoch}
-                  onDirty={setDraftDirty}
-                />
-              </div>
-            </main>
-            <Suspense
-              fallback={
-                <div className="terminal-loading">正在连接本地终端…</div>
-              }
-            >
-              <TerminalDock
-                session={sessionData}
-                open={terminal}
-                onOpenChange={setTerminal}
-                maximized={terminalMaximized}
-                onMaximize={setTerminalMaximized}
-              />
-            </Suspense>
+                    <ExternalLink size={14} />
+                  </button>
+                </div>
+              </aside>
+            </div>
           </div>
-          <aside className="inspector">
-            <div className="inspector-tabs">
-              <button
-                className={inspectorTab === "paper" ? "selected" : ""}
-                onClick={() => setInspectorTab("paper")}
-              >
-                论文详情
-              </button>
-              <button
-                className={inspectorTab === "notes" ? "selected" : ""}
-                onClick={() => setInspectorTab("notes")}
-              >
-                笔记与讨论 <span>{state.notes.length}</span>
-              </button>
-              <button
-                className={inspectorTab === "activity" ? "selected" : ""}
-                onClick={() => setInspectorTab("activity")}
-                aria-label="研究动态"
-              >
-                <Activity size={15} />
-              </button>
-            </div>
-            <div className="inspector-scroll">
-              {inspectorTab === "paper" &&
-                (paper ? (
-                  <>
-                    <div className="detail-heading">
-                      <span className={`status ${paper.status}`}>
-                        <i />
-                        {statusText[paper.status]}
-                      </span>
-                      <button
-                        className="text-button"
-                        onClick={() => setModal({ type: "paper", paper })}
-                      >
-                        <PenLine size={13} /> 编辑
-                      </button>
-                    </div>
-                    <h2 className="detail-title">{paper.title}</h2>
-                    <p className="authors">
-                      {paper.authors || "作者待补充"}
-                      {paper.year && ` · ${paper.year}`}
-                    </p>
-                    <div className="tags">
-                      {paper.tags?.map((t) => (
-                        <span key={t}>{t}</span>
-                      ))}
-                    </div>
-                    {paper.url && (
-                      <a
-                        className="source-link"
-                        href={paper.url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <Link size={14} />
-                        <span>查看论文来源</span>
-                        <ArrowUpRight size={14} />
-                      </a>
-                    )}
-                    {[
-                      ["摘要", paper.abstract || paper.summary],
-                      ["核心方法", paper.method],
-                      ["主要发现", paper.findings],
-                      ["局限与开放问题", paper.limitations],
-                    ].map(([label, text]) => (
-                      <section className="detail-section" key={label}>
-                        <h3>{label}</h3>
-                        <Markdown text={text || "尚未梳理，等待补充。"} />
-                      </section>
-                    ))}
-                    <div className="reading-actions">
-                      <button
-                        className="button primary"
-                        onClick={() => focus(paper, "reader")}
-                      >
-                        <BookOpen size={15} />
-                        精读这篇论文
-                      </button>
-                      <button
-                        className="button secondary"
-                        onClick={() => setModal({ type: "note", paper })}
-                      >
-                        <PenLine size={15} />
-                        记一笔
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <Empty title="思考，从连接开始" icon={Layers}>
-                    选择一篇论文，查看摘要、核心贡献和它在领域中的位置。
-                  </Empty>
-                ))}
-              {inspectorTab === "notes" && (
-                <>
-                  {state.context.selection && (
-                    <div className="selection-card">
-                      <span>
-                        <MessageSquare size={14} />
-                        当前选中 · p. {state.context.page}
-                      </span>
-                      <blockquote>{state.context.selection}</blockquote>
-                      <button
-                        className="text-button"
-                        onClick={() => fire("set_context", { selection: "" })}
-                      >
-                        清除选中
-                      </button>
-                    </div>
-                  )}
-                  <form
-                    className="question-form"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const f = e.currentTarget;
-                      const question = new FormData(f).get("question");
-                      act(
-                        "add_question",
-                        {
-                          paperId: paper?.id || null,
-                          question,
-                          quote: state.context.selection || "",
-                          page: state.context.page,
-                        },
-                        "问题已加入上下文，让 agent 读取 get_context 即可继续讨论",
-                      )
-                        .then(() => f.reset())
-                        .catch(() => {});
-                    }}
-                  >
-                    <label htmlFor="question-input">哪里还没想明白？</label>
-                    <textarea
-                      id="question-input"
-                      name="question"
-                      required
-                      maxLength={500}
-                      placeholder="为什么这里使用这个损失函数？与上一篇有什么不同？"
-                    />
-                    <button className="button primary small" type="submit">
-                      <Plus size={14} />
-                      交给 Agent 的上下文
-                    </button>
-                  </form>
-                  <div className="section-title">
-                    <h3>研究笔记</h3>
-                    <button
-                      aria-label="新建笔记"
-                      onClick={() => setModal({ type: "note", paper })}
-                    >
-                      <Plus size={16} />
-                    </button>
-                  </div>
-                  {state.notes
-                    .filter((n) => !paper || n.paperIds.includes(paper.id))
-                    .map((n) => (
-                      <button
-                        key={n.id}
-                        className="note-item"
-                        onClick={() => setModal({ type: "edit-note", note: n })}
-                      >
-                        <FileText size={17} />
-                        <div>
-                          <strong>{n.title}</strong>
-                          <small>
-                            {noteKinds[n.kind]} ·{" "}
-                            {new Date(n.updatedAt).toLocaleDateString()}
-                          </small>
-                        </div>
-                        <ChevronRight size={14} />
-                      </button>
-                    ))}
-                  {!state.notes.length && (
-                    <p className="muted small-text">
-                      讨论后，让 agent 把理解写成笔记。也可以直接点击 + 记录。
-                    </p>
-                  )}
-                  <div className="section-title">
-                    <h3>待解问题</h3>
-                    <span>
-                      {
-                        state.questions.filter((q) => q.status === "open")
-                          .length
-                      }
-                    </span>
-                  </div>
-                  {state.questions
-                    .filter((q) => !paper || q.paperId === paper.id)
-                    .map((q) => (
-                      <div className={`question-item ${q.status}`} key={q.id}>
-                        {q.status === "resolved" ? (
-                          <CheckCircle2 size={15} />
-                        ) : (
-                          <Clock size={15} />
-                        )}
-                        <div>
-                          {q.question}
-                          <small>
-                            {q.status === "resolved"
-                              ? "已沉淀为笔记"
-                              : "等待讨论"}
-                            {q.page && ` · p. ${q.page}`}
-                          </small>
-                        </div>
-                      </div>
-                    ))}
-                </>
-              )}
-              {inspectorTab === "activity" && (
-                <>
-                  <div className="section-title">
-                    <h3>研究动态</h3>
-                    <span className="live-dot" />
-                  </div>
-                  {state.activity.length ? (
-                    state.activity.map((a) => (
-                      <div className="activity-item" key={a.id}>
-                        <span />
-                        <div>
-                          <p>{a.message}</p>
-                          <small>
-                            {new Date(a.createdAt).toLocaleTimeString()}
-                          </small>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="muted">
-                      Agent 的阅读进展、图谱更新和你的笔记会实时出现在这里。
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-            <div className="vault-footer">
-              <span className="vault-dot" />
-              <div>
-                <strong>你的笔记，留在本地</strong>
-                <small title={state.vault}>Markdown · Obsidian 双向同步</small>
-              </div>
-              <button
-                title="查看 Obsidian 设置"
-                onClick={() => setModal({ type: "settings" })}
-              >
-                <ExternalLink size={14} />
-              </button>
-            </div>
-          </aside>
+          <Suspense
+            fallback={<div className="terminal-loading">正在连接本地终端…</div>}
+          >
+            <TerminalDock
+              session={sessionData}
+              open={terminal}
+              onOpenChange={setTerminal}
+              maximized={terminalMaximized}
+              onMaximize={setTerminalMaximized}
+            />
+          </Suspense>
         </div>
-        <footer className="statusbar">
-          <span>
-            <span className="live-dot" />
-            Paperweave <span className="faint">v0.1</span>
-          </span>
-          <span>
-            {state.papers.filter((p) => p.status === "reviewed").length}{" "}
-            篇已梳理 ·{" "}
-            {state.questions.filter((q) => q.status === "open").length}{" "}
-            个待解问题
-          </span>
-          <span>Local first. Research together.</span>
-        </footer>
       </div>
       {toast && (
         <div className="toast">
@@ -1422,8 +1496,18 @@ function Graph({ state, filtered, focus, onAdd, onRelation, onTalk }) {
   const [zoom, setZoom] = useState(1),
     [edge, setEdge] = useState(null);
   const papers = filtered;
+  const graphHost = useRef();
+  const [viewportWidth, setViewportWidth] = useState(960);
+  useEffect(() => {
+    const observer = new ResizeObserver(([entry]) =>
+      setViewportWidth(entry.contentRect.width),
+    );
+    observer.observe(graphHost.current);
+    return () => observer.disconnect();
+  }, []);
   const width = 960,
     height = Math.max(500, Math.ceil(papers.length / 3) * 235 + 65);
+  const scale = zoom * Math.min(1, Math.max(300, viewportWidth - 24) / width);
   const positions = new Map(
     papers.map((p, i) => [
       p.id,
@@ -1434,7 +1518,7 @@ function Graph({ state, filtered, focus, onAdd, onRelation, onTalk }) {
     ]),
   );
   return (
-    <div className="graph-wrap">
+    <div className="graph-wrap" ref={graphHost}>
       <div className="canvas-toolbar">
         <div>
           <span className="live-dot" />
@@ -1454,11 +1538,11 @@ function Graph({ state, filtered, focus, onAdd, onRelation, onTalk }) {
         <div className="graph-scroll">
           <div
             className="graph-space"
-            style={{ width: width * zoom, height: height * zoom }}
+            style={{ width: width * scale, height: height * scale }}
           >
             <div
               className="graph-scale"
-              style={{ width, height, transform: `scale(${zoom})` }}
+              style={{ width, height, transform: `scale(${scale})` }}
             >
               <svg className="graph-lines" width={width} height={height}>
                 <defs>
@@ -1592,7 +1676,7 @@ function Graph({ state, filtered, focus, onAdd, onRelation, onTalk }) {
             展开一段研究。
           </h2>
           <p>
-            直接在下方对话，像平常使用 CLI 一样。
+            直接在右侧对话，像平常使用 CLI 一样。
             <br />
             论文、脉络和讨论后的笔记，会在这里逐渐沉淀。
           </p>
@@ -1639,7 +1723,7 @@ function Graph({ state, filtered, focus, onAdd, onRelation, onTalk }) {
           >
             <ZoomOut size={16} />
           </button>
-          <span>{Math.round(zoom * 100)}%</span>
+          <span>{Math.round(scale * 100)}%</span>
           <button
             aria-label="放大画布"
             onClick={() => setZoom((z) => Math.min(1.5, z + 0.1))}

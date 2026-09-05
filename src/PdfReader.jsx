@@ -10,7 +10,14 @@ import {
   Quote,
 } from "lucide-react";
 GlobalWorkerOptions.workerSrc = worker;
-export default function PdfReader({ url, page = 1, onPage, onSelection }) {
+export default function PdfReader({
+  url,
+  page = 1,
+  onPage,
+  onSelection,
+  onReplace,
+}) {
+  const [retry, setRetry] = useState(0);
   const [doc, setDoc] = useState(null),
     [error, setError] = useState(""),
     [zoom, setZoom] = useState(1.1),
@@ -34,7 +41,13 @@ export default function PdfReader({ url, page = 1, onPage, onSelection }) {
       })
       .catch((e) => {
         if (alive) {
-          setError(e.message);
+          setError(
+            e.status === 404
+              ? "PDF 暂时无法读取，请重试或重新关联文件。"
+              : e.status === 401 || e.status === 403
+                ? "连接已更新，请刷新页面后重新打开论文。"
+                : "PDF 加载失败，请重试或更换有效的 PDF 文件。",
+          );
           setLoading(false);
         }
       });
@@ -42,7 +55,7 @@ export default function PdfReader({ url, page = 1, onPage, onSelection }) {
       alive = false;
       task.destroy();
     };
-  }, [url]);
+  }, [url, retry]);
   useEffect(() => {
     if (!doc) return;
     let active = true,
@@ -80,7 +93,7 @@ export default function PdfReader({ url, page = 1, onPage, onSelection }) {
       if (active) setLoading(false);
     })().catch((e) => {
       if (active && e.name !== "RenderingCancelledException") {
-        setError(e.message);
+        setError("这一页暂时无法渲染，请重试或更换 PDF 文件。");
         setLoading(false);
       }
     });
@@ -137,7 +150,13 @@ export default function PdfReader({ url, page = 1, onPage, onSelection }) {
           <Quote size={13} /> 划选原文，带着上下文讨论
         </small>
       </div>
-      {error && <div className="error-box">{error}</div>}
+      {error && (
+        <div className="error-box" role="alert">
+          <p>{error}</p>
+          <button onClick={() => setRetry((n) => n + 1)}>重试读取</button>
+          {onReplace && <button onClick={onReplace}>重新关联 PDF</button>}
+        </div>
+      )}
       <div className="pdf-scroll">
         {loading && <span className="loading-badge">正在渲染 PDF…</span>}
         <div className="pdf-page" ref={container} onMouseUp={select}>

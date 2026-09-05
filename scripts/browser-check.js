@@ -7,7 +7,7 @@ import { startServer } from "../server/index.js";
 import { root } from "../server/config.js";
 import { freePort, seedDemo, samplePdf } from "../test/fixtures.js";
 
-const dir = await fs.mkdtemp(path.join(os.tmpdir(), "paperweave-browser-"));
+const dir = await fs.mkdtemp(path.join(os.tmpdir(), ".paperweave-browser-"));
 const app = await startServer({
   root,
   dataDir: dir,
@@ -39,6 +39,9 @@ try {
   await page.goto(app.origin);
   await expect(page.getByText("从一个问题开始，")).toBeVisible();
   await expect(page.locator(".terminal-dock")).toHaveClass(/is-open/);
+  await expect(page.locator(".workspace-heading,.metrics")).toHaveCount(0);
+  await expect(page.locator(".library")).toBeHidden();
+  await expect(page.locator(".inspector")).toBeHidden();
   await page.screenshot({
     path: path.join(root, "artifacts", "empty.png"),
     fullPage: true,
@@ -80,6 +83,18 @@ try {
   await page.getByRole("button", { name: "导出 PPTX" }).click();
   await expect.poll(() => !!app.store.snapshot().figures[0].pptx).toBe(true);
   console.log("PASS model and result figures; native PPTX export");
+  await page.getByRole("button", { name: "关闭科研图件标签页" }).click();
+  await expect(
+    page.getByRole("tab", { name: "科研图件", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "新建研究标签页" }).click();
+  await page
+    .locator(".workspace-tab-menu")
+    .getByRole("button", { name: "科研图件", exact: true })
+    .click();
+  await expect(
+    page.getByRole("tab", { name: "科研图件", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await page
     .getByRole("button", { name: "论文写作", exact: true })
     .first()
@@ -122,11 +137,29 @@ try {
     body: samplePdf(),
   });
   if (!upload.ok) throw new Error(await upload.text());
+  let missingOnce = true;
+  await page.route("**/api/files/**", async (route) => {
+    if (
+      missingOnce &&
+      new URL(route.request().url()).pathname.endsWith(".pdf")
+    ) {
+      missingOnce = false;
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: '{"error":"Not Found"}',
+      });
+    } else await route.continue();
+  });
   await page
     .getByRole("button", { name: "论文精读", exact: true })
     .first()
     .click();
+  await expect(page.getByRole("alert")).toContainText("PDF 暂时无法读取");
+  await expect(page.getByRole("alert")).not.toContainText("token=");
+  await page.getByRole("button", { name: "重试读取", exact: true }).click();
   await expect(page.locator(".textLayer span").first()).toBeVisible();
+  await page.unroute("**/api/files/**");
   await page.locator(".textLayer").evaluate((el) => {
     const range = document.createRange();
     range.selectNodeContents(el);
@@ -170,6 +203,10 @@ try {
     .getByRole("button", { name: "关闭", exact: true })
     .click();
   console.log("PASS external Obsidian note edits appear in browser");
+  await page.getByRole("button", { name: "收起详情面板" }).click();
+  await page.getByRole("button", { name: "研究笔记", exact: true }).click();
+  await expect(page.locator(".research-note-card")).toHaveCount(1);
+  await page.getByRole("button", { name: "论文脉络", exact: true }).click();
   const info = await fetch(`${app.origin}/api/session`).then((r) => r.json());
   if (info.terminalAvailable) {
     await expect(page.locator(".xterm-screen")).toBeVisible();
@@ -182,9 +219,9 @@ try {
       .poll(
         async () =>
           (
-            (await page.locator(".xterm-accessibility-tree").innerText()).match(
-              /PAPERWEAVE_TERMINAL_OK/g,
-            ) || []
+            (await page.locator(".xterm-accessibility-tree").innerText())
+              .replace(/\s+/g, "")
+              .match(/PAPERWEAVE_TERMINAL_OK/g) || []
           ).length,
         { timeout: 10000 },
       )
@@ -203,13 +240,24 @@ try {
     );
     await page.getByLabel("终端配色", { exact: true }).selectOption("local");
     const size = await page.locator(".terminal-dock").boundingBox();
-    await page.getByRole("separator", { name: "调整终端高度" }).focus();
-    await page.keyboard.press("ArrowUp");
+    const canvasBeforeResize = await page.locator(".canvas-area").boundingBox();
+    await page.getByRole("separator", { name: "调整终端宽度" }).focus();
+    await page.keyboard.press("ArrowLeft");
     await expect
       .poll(
-        async () => (await page.locator(".terminal-dock").boundingBox()).height,
+        async () => (await page.locator(".terminal-dock").boundingBox()).width,
       )
-      .toBeGreaterThan(size.height);
+      .toBeGreaterThan(size.width);
+    await expect
+      .poll(
+        async () => (await page.locator(".canvas-area").boundingBox()).height,
+      )
+      .toBe(canvasBeforeResize.height);
+    await page.locator(".xterm-helper-textarea").focus();
+    await expect(page.locator(".xterm-cursor").first()).toHaveCSS(
+      "animation-name",
+      "none",
+    );
     await page.getByRole("button", { name: "终端分屏", exact: true }).click();
     await expect(page.locator(".terminal-session:not([hidden])")).toHaveCount(
       2,
@@ -232,15 +280,16 @@ try {
       path: path.join(root, "artifacts", "terminal.png"),
       fullPage: true,
     });
-    await page.locator(".terminal-toggle").click();
-    await page.locator(".terminal-toggle").click();
+    await page.getByRole("button", { name: "终端", exact: true }).click();
+    await page.getByRole("button", { name: "终端", exact: true }).click();
     await expect(page.locator(".xterm-accessibility-tree")).toContainText(
       "PAPERWEAVE_TERMINAL_OK",
     );
     await page.locator(".xterm-helper-textarea").pressSequentially("exit");
     await page.locator(".xterm-helper-textarea").press("Enter");
     await expect(page.locator(".terminal-status")).toContainText("会话已结束");
-    await page.locator(".terminal-toggle").click();
+    await page.getByRole("button", { name: "重新连接", exact: true }).click();
+    await expect(page.locator(".terminal-status")).toContainText("本地 Shell");
     console.log(
       "PASS real PTY output, theme switching without session loss, resize, split, maximize, collapse and shell exit",
     );

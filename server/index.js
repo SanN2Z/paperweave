@@ -149,7 +149,11 @@ export async function startServer(config, { dev = false } = {}) {
       "default-src 'none'; style-src 'unsafe-inline'; sandbox",
     );
     if (filename.endsWith(".pptx")) res.attachment(filename);
-    res.sendFile(path.join(config.dataDir, "files", filename));
+    // Managed data lives in .paperweave; Express otherwise ignores this hidden directory.
+    // The authenticated reference check and strict filename allowlist above still apply.
+    res.sendFile(path.join(config.dataDir, "files", filename), {
+      dotfiles: "allow",
+    });
   });
   app.post("/api/manuscripts/:id/compile", async (req, res) => {
     const m = await store.call("get_manuscript", {
