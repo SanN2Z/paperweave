@@ -1,0 +1,150 @@
+import React, { useEffect, useRef, useState } from "react";
+import { getDocument, GlobalWorkerOptions, TextLayer } from "pdfjs-dist";
+import worker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import "pdfjs-dist/web/pdf_viewer.css";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
+  Quote,
+} from "lucide-react";
+GlobalWorkerOptions.workerSrc = worker;
+export default function PdfReader({ url, page = 1, onPage, onSelection }) {
+  const [doc, setDoc] = useState(null),
+    [error, setError] = useState(""),
+    [zoom, setZoom] = useState(1.1),
+    [count, setCount] = useState(0),
+    [loading, setLoading] = useState(true);
+  const canvas = useRef(),
+    layer = useRef(),
+    container = useRef();
+  useEffect(() => {
+    setError("");
+    setDoc(null);
+    setLoading(true);
+    const task = getDocument({ url, isEvalSupported: false });
+    let alive = true;
+    task.promise
+      .then((d) => {
+        if (alive) {
+          setDoc(d);
+          setCount(d.numPages);
+        }
+      })
+      .catch((e) => {
+        if (alive) {
+          setError(e.message);
+          setLoading(false);
+        }
+      });
+    return () => {
+      alive = false;
+      task.destroy();
+    };
+  }, [url]);
+  useEffect(() => {
+    if (!doc) return;
+    let active = true,
+      render,
+      textLayer;
+    setLoading(true);
+    (async () => {
+      const p = await doc.getPage(Math.min(page, doc.numPages));
+      if (!active) return;
+      const viewport = p.getViewport({ scale: zoom });
+      const scale = devicePixelRatio || 1;
+      const c = canvas.current;
+      c.width = Math.floor(viewport.width * scale);
+      c.height = Math.floor(viewport.height * scale);
+      c.style.width = `${viewport.width}px`;
+      c.style.height = `${viewport.height}px`;
+      container.current.style.width = `${viewport.width}px`;
+      container.current.style.height = `${viewport.height}px`;
+      layer.current.replaceChildren();
+      layer.current.style.setProperty("--scale-factor", zoom);
+      layer.current.style.setProperty("--total-scale-factor", zoom);
+      render = p.render({
+        canvasContext: c.getContext("2d"),
+        viewport,
+        transform: scale !== 1 ? [scale, 0, 0, scale, 0, 0] : null,
+      });
+      await render.promise;
+      if (!active) return;
+      textLayer = new TextLayer({
+        textContentSource: await p.getTextContent(),
+        container: layer.current,
+        viewport,
+      });
+      await textLayer.render();
+      if (active) setLoading(false);
+    })().catch((e) => {
+      if (active && e.name !== "RenderingCancelledException") {
+        setError(e.message);
+        setLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+      render?.cancel();
+      textLayer?.cancel();
+    };
+  }, [doc, page, zoom]);
+  function select() {
+    const selected = window.getSelection();
+    const text = selected?.toString().trim();
+    if (text && layer.current?.contains(selected.anchorNode))
+      onSelection?.(text, page);
+  }
+  return (
+    <div className="pdf-reader">
+      <div className="pdf-toolbar">
+        <div>
+          <button
+            aria-label="上一页"
+            disabled={page <= 1}
+            onClick={() => onPage?.(page - 1)}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span>
+            第 {page} / {count || "—"} 页
+          </span>
+          <button
+            aria-label="下一页"
+            disabled={page >= count}
+            onClick={() => onPage?.(page + 1)}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+        <div>
+          <button
+            aria-label="缩小"
+            onClick={() => setZoom((z) => Math.max(0.5, z - 0.15))}
+          >
+            <ZoomOut size={16} />
+          </button>
+          <span>{Math.round(zoom * 100)}%</span>
+          <button
+            aria-label="放大"
+            onClick={() => setZoom((z) => Math.min(2.5, z + 0.15))}
+          >
+            <ZoomIn size={16} />
+          </button>
+        </div>
+        <small>
+          <Quote size={13} /> 划选原文，带着上下文讨论
+        </small>
+      </div>
+      {error && <div className="error-box">{error}</div>}
+      <div className="pdf-scroll">
+        {loading && <span className="loading-badge">正在渲染 PDF…</span>}
+        <div className="pdf-page" ref={container} onMouseUp={select}>
+          <canvas ref={canvas} />
+          <div ref={layer} className="textLayer" />
+        </div>
+      </div>
+    </div>
+  );
+}

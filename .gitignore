@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.paperweave/
+.npm-cache/
+artifacts/
+*.log
+.env
+.env.*
+!.env.example
+*.local.json

@@ -1,0 +1,44 @@
+{
+  "name": "paperweave",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A local research workbench connecting papers, knowledge maps, CLI agents and Obsidian through MCP.",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "node server/index.js --dev",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "mcp": "node server/mcp.js",
+    "setup": "node scripts/setup.js",
+    "doctor": "node scripts/doctor.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
+    "test:browser": "node scripts/browser-check.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "chokidar": "^4.0.3",
+    "dompurify": "^3.2.7",
+    "express": "^5.1.0",
+    "lucide-react": "^0.468.0",
+    "marked": "^17.0.1",
+    "pdfjs-dist": "6.3.289",
+    "pptxgenjs": "^4.0.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "ws": "^8.18.3",
+    "zod": "^3.25.76"
+  },
+  "optionalDependencies": {
+    "node-pty": "1.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "prettier": "^3.9.6",
+    "vite": "^7.3.1"
+  }
+}
