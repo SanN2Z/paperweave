@@ -8,6 +8,8 @@ import { freePort, samplePdf, seedDemo } from "../test/fixtures.js";
 import { root } from "../server/config.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { stripVTControlCharacters } from "node:util";
+import { checkImageClipboard, backupClipboard, restoreClipboard } from "./clipboard-image-check.js";
 
 const exe = process.env.PAPERWEAVE_DESKTOP_EXE;
 if (!exe)
@@ -137,9 +139,12 @@ try {
   await context.grantPermissions(["clipboard-read", "clipboard-write"], {
     origin: runtime.url,
   });
-  const clipboardBackup = await page.evaluate(() =>
-    navigator.clipboard.readText(),
-  );
+  await backupClipboard(page);
+  const cancelLine = async () => {
+    const first = output.length;
+    await term.press("Control+c");
+    await expect.poll(() => stripVTControlCharacters(output.slice(first).join("")), { timeout: 10000 }).toMatch(/PS [^\r\n]*> /);
+  };
   try {
     await page.evaluate(() =>
       navigator.clipboard.writeText("NATIVE_CLIPBOARD_科研粘贴"),
@@ -149,13 +154,11 @@ try {
     await expect
       .poll(() => inputs.slice(first).join(""))
       .toContain("NATIVE_CLIPBOARD_科研粘贴");
-    await term.press("Control+c");
+    await cancelLine();
     console.log("PASS native WebView real clipboard paste into the PTY");
+    await checkImageClipboard(page, inputs, cancelLine, dataDir);
   } finally {
-    await page.evaluate(
-      (value) => navigator.clipboard.writeText(value),
-      clipboardBackup,
-    );
+    await restoreClipboard(page);
   }
   const pdf = path.join(dir, "fixture.pdf");
   await fs.writeFile(pdf, samplePdf(4));

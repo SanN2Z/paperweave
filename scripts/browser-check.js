@@ -7,6 +7,7 @@ import { stripVTControlCharacters } from "node:util";
 import { startServer } from "../server/index.js";
 import { root } from "../server/config.js";
 import { freePort, seedDemo, samplePdf } from "../test/fixtures.js";
+import { checkImageClipboard, backupClipboard, restoreClipboard } from "./clipboard-image-check.js";
 
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), ".paperweave-browser-"));
 const app = await startServer({
@@ -561,9 +562,7 @@ try {
     await page
       .context()
       .grantPermissions(["clipboard-read", "clipboard-write"]);
-    const originalClipboard = await page.evaluate(() =>
-      navigator.clipboard.readText(),
-    );
+    await backupClipboard(page);
     try {
       const shortcuts =
         process.platform === "darwin"
@@ -611,14 +610,13 @@ try {
       await expect(page.locator(".terminal-clipboard-error")).toHaveCount(0);
       await cancelShellLine();
       await page.evaluate(() => delete navigator.clipboard.readText);
+      await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+      await checkImageClipboard(page, terminalInputs, cancelShellLine, dir);
     } finally {
       await page
         .context()
         .grantPermissions(["clipboard-read", "clipboard-write"]);
-      await page.evaluate(
-        (text) => navigator.clipboard.writeText(text),
-        originalClipboard,
-      );
+      await restoreClipboard(page);
     }
     console.log(
       "PASS real clipboard: Chinese multiline, Ctrl+V, Ctrl+Shift+V, Shift+Insert, button, and denied permission feedback",

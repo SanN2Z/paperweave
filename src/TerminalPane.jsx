@@ -8,12 +8,14 @@ import React, {
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import { wsUrl } from "./api";
+import { request, wsUrl } from "./api";
 export default forwardRef(function TerminalPane(
   { initialCommand = null, autoFocus = false, theme },
   ref,
 ) {
   const terminalRef = useRef();
+  const pasteQueue = useRef(Promise.resolve());
+  const [pastingImage, setPastingImage] = useState(false);
   const [clipboardError, setClipboardError] = useState("");
   const host = useRef(),
     socket = useRef(),
@@ -36,6 +38,7 @@ export default forwardRef(function TerminalPane(
   }));
   useEffect(() => {
     setStatus("连接中");
+    setPastingImage(false);
     const term = new Terminal({
       fontFamily: "Cascadia Code, SFMono-Regular, Consolas, monospace",
       fontSize: 14,
@@ -124,6 +127,59 @@ export default forwardRef(function TerminalPane(
   useEffect(() => {
     if (terminalRef.current) terminalRef.current.options.theme = theme;
   }, [theme]);
+  function pasteImages(files) {
+    const term = terminalRef.current;
+    const ws = socket.current;
+    if (!term || ws?.readyState !== WebSocket.OPEN) {
+      setClipboardError("终端尚未连接，请连接后重试。");
+      return;
+    }
+    // Serialize successive pastes; deliver only to the original live pane.
+    pasteQueue.current = pasteQueue.current.then(async () => {
+      if (terminalRef.current !== term || ws.readyState !== WebSocket.OPEN)
+        return;
+      setPastingImage(true);
+      setClipboardError("");
+      try {
+        for (const file of files) {
+          if (file.size > 20 * 1024 * 1024)
+            throw new Error("图片过大，请使用不超过 20 MB 的图片。");
+          const attachment = await request("/api/terminal/attachments", {
+            method: "POST",
+            headers: { "Content-Type": "application/octet-stream" },
+            body: file,
+          });
+          if (terminalRef.current !== term || ws.readyState !== WebSocket.OPEN)
+            return;
+          term.paste(attachment.pasteText);
+        }
+      } catch (error) {
+        if (terminalRef.current === term)
+          setClipboardError(`图片粘贴失败：${error.message}`);
+      } finally {
+        if (terminalRef.current === term) {
+          setPastingImage(false);
+          // Upload completion must not steal focus from another pane/document.
+          if (
+            host.current
+              ?.closest(".terminal-content")
+              ?.contains(document.activeElement)
+          )
+            term.focus();
+        }
+      }
+    });
+  }
+  function onPaste(event) {
+    setClipboardError("");
+    const files = [...(event.clipboardData?.files || [])].filter((file) =>
+      file.type.startsWith("image/"),
+    );
+    if (!files.length) return; // Keep native xterm text/bracketed paste intact.
+    event.preventDefault();
+    event.stopPropagation();
+    pasteImages(files);
+  }
   async function pasteClipboard() {
     const term = terminalRef.current;
     if (!term || socket.current?.readyState !== WebSocket.OPEN) {
@@ -131,8 +187,34 @@ export default forwardRef(function TerminalPane(
       return;
     }
     try {
+      if (navigator.clipboard.read) {
+        try {
+          const items = await navigator.clipboard.read();
+          const images = [];
+          for (const item of items) {
+            const type = item.types.find((type) => type.startsWith("image/"));
+            if (type) images.push(await item.getType(type));
+          }
+          if (terminalRef.current !== term) return;
+          if (images.length) {
+            term.focus();
+            pasteImages(images);
+            return;
+          }
+        } catch {
+          // Some hosts grant text access but do not implement rich clipboard.
+          // Native Ctrl/Cmd+V still supplies image files without this API.
+        }
+      }
       const text = await navigator.clipboard.readText();
       if (terminalRef.current !== term) return;
+      if (!text) {
+        setClipboardError(
+          "未读到剪贴板内容。图片请点击终端后按 Ctrl+V（Mac 用 ⌘V）。",
+        );
+        term.focus();
+        return;
+      }
       term.paste(text);
       term.focus();
       setClipboardError("");
@@ -151,9 +233,9 @@ export default forwardRef(function TerminalPane(
         <span>运行 codex / claude，或你的实验命令</span>
         <button
           onClick={pasteClipboard}
-          title="粘贴剪贴板文字（Ctrl+V / Ctrl+Shift+V / ⌘V）"
+          title="粘贴文字或图片（Ctrl+V / Ctrl+Shift+V / ⌘V）"
         >
-          粘贴
+          {pastingImage ? "正在粘贴图片…" : "粘贴"}
         </button>
         {status === "会话已结束" ? (
           <button onClick={() => setEpoch((e) => e + 1)}>重新连接</button>
@@ -166,11 +248,7 @@ export default forwardRef(function TerminalPane(
           {clipboardError}
         </div>
       )}
-      <div
-        ref={host}
-        className="terminal-host"
-        onPasteCapture={() => setClipboardError("")}
-      />
+      <div ref={host} className="terminal-host" onPasteCapture={onPaste} />
     </div>
   );
 });

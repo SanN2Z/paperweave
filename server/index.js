@@ -10,6 +10,7 @@ import { Store } from "./store.js";
 import { terminalTheme } from "./terminal-theme.js";
 import { resolveShell, terminalEnvironment } from "./shell.js";
 import { detectAgent, agentCommand } from "./agents.js";
+import { attachmentLimit, saveTerminalAttachment } from "./terminal-attachments.js";
 import { extractPdf } from "./pdf.js";
 import "../scripts/prepare-pty.js";
 import { execFile } from "node:child_process";
@@ -86,6 +87,13 @@ export async function startServer(config, { dev = false } = {}) {
     next();
   });
   app.get("/api/state", (_req, res) => res.json(store.snapshot()));
+  app.post(
+    "/api/terminal/attachments",
+    express.raw({ type: "application/octet-stream", limit: attachmentLimit }),
+    async (req, res) => {
+      res.json(await saveTerminalAttachment(config, terminalShell.shell, req.body));
+    },
+  );
   app.post(
     "/api/templates/upload",
     express.raw({ type: "application/octet-stream", limit: "80mb" }),

@@ -111,6 +111,30 @@ test("local HTTP requires authentication and rejects foreign origins / DNS rebin
   const { data } = await api("/api/state");
   assert.equal(data.papers.length, 0);
 });
+
+test("terminal image attachments are private, bounded, durable files without figure side effects", async () => {
+  const image = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aV9sAAAAASUVORK5CYII=", "base64");
+  const upload = (body, auth = true) => fetch(`${app.origin}/api/terminal/attachments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/octet-stream", ...(auth ? { Authorization: `Bearer ${app.token}` } : {}) },
+    body,
+  });
+  assert.equal((await upload(image, false)).status, 401);
+  assert.equal((await upload(Buffer.from("<svg>not a screenshot</svg>"))).status, 400);
+  assert.equal((await upload(Buffer.alloc(20 * 1024 * 1024 + 1))).status, 413);
+  const before = app.store.snapshot().figures.length;
+  const response = await upload(image);
+  assert.equal(response.status, 200);
+  const saved = await response.json();
+  assert.equal(path.dirname(saved.path), path.join(dir, "attachments"));
+  assert.deepEqual(await fs.readFile(saved.path), image);
+  assert.ok(saved.pasteText.includes(saved.path));
+  assert.ok(!/[\r\n]/.test(saved.pasteText));
+  const second = await (await upload(image)).json();
+  assert.notEqual(second.path, saved.path);
+  assert.equal(app.store.snapshot().figures.length, before);
+  assert.equal((await fetch(`${app.origin}/api/files/${path.basename(saved.path)}?token=${app.token}`)).status, 404);
+});
 test("a real stdio MCP client discovers tools, reads the workflow and updates the live UI stream", async () => {
   const transport = new StdioClientTransport({
     command: process.execPath,
