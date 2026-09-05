@@ -728,6 +728,11 @@ try {
   if (errors.length)
     throw new Error(`Browser runtime errors: ${errors.join("\n")}`);
   console.log("PASS desktop and compact viewport, no browser runtime errors");
+} catch (error) {
+  // This harness uses only synthetic fixtures. Keep failure evidence in CI.
+  await page.screenshot({ path: path.join(root, "artifacts/browser-failure.png"), fullPage: true }).catch(() => {});
+  console.error("Synthetic terminal at failure:", await page.locator(".xterm-accessibility-tree").allTextContents().catch(() => []));
+  throw error;
 } finally {
   await browser.close();
   await app.close();

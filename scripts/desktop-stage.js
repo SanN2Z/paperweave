@@ -3,9 +3,10 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { root } from "../server/config.js";
 
-if (process.platform !== "win32" || process.arch !== "x64")
+if (!((process.platform === "win32" && process.arch === "x64") ||
+      (process.platform === "darwin" && ["arm64", "x64"].includes(process.arch))))
   throw new Error(
-    "This release target is Windows x64; other platforms are not yet validated.",
+    "Desktop staging supports Windows x64 and native macOS arm64/x64 builds.",
   );
 const target = path.join(root, "src-tauri", "resources", "paperweave");
 await fs.mkdir(target, { recursive: true });
@@ -29,7 +30,9 @@ for (const name of [
     recursive: true,
   });
 await fs.mkdir(path.join(target, "runtime"), { recursive: true });
-await fs.copyFile(process.execPath, path.join(target, "runtime", "node.exe"));
+const runtime = path.join(target, "runtime", process.platform === "win32" ? "node.exe" : "node");
+await fs.copyFile(process.execPath, runtime);
+if (process.platform !== "win32") await fs.chmod(runtime, 0o755);
 const license = await fetch(
   `https://raw.githubusercontent.com/nodejs/node/${process.version}/LICENSE`,
 );
@@ -53,6 +56,14 @@ await new Promise((resolve, reject) => {
       ? resolve()
       : reject(new Error(`Dependency staging failed (${code})`)),
   );
+});
+// Fix published helper permissions before bundle signing, not on first launch.
+await new Promise((resolve, reject) => {
+  const child = spawn(runtime, [path.join(target, "scripts/prepare-pty.js")], {
+    cwd: target, stdio: "inherit", windowsHide: true,
+  });
+  child.on("error", reject);
+  child.on("exit", code => code === 0 ? resolve() : reject(new Error(`PTY preparation failed (${code})`)));
 });
 await fs.writeFile(
   path.join(target, "desktop-bundle.json"),

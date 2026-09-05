@@ -52,6 +52,9 @@ export default forwardRef(function TerminalPane(
     term.loadAddon(fit);
     term.open(host.current);
     terminalRef.current = term;
+    // Focus when the pane mounts. A delayed connection must not steal focus
+    // after the user has already switched back to another pane or document.
+    if (autoFocus) term.focus();
     term.attachCustomKeyEventHandler((event) => {
       const pasteKey =
         !event.altKey &&
@@ -80,7 +83,6 @@ export default forwardRef(function TerminalPane(
     };
     ws.onopen = () => {
       resize();
-      if (autoFocus) term.focus();
     };
     ws.onmessage = (e) => {
       const m = JSON.parse(e.data);

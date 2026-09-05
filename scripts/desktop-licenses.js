@@ -12,7 +12,9 @@ const { stdout } = await promisify(execFile)(
     "--format-version",
     "1",
     "--filter-platform",
-    "x86_64-pc-windows-msvc",
+    process.platform === "darwin"
+      ? `${process.arch === "arm64" ? "aarch64" : "x86_64"}-apple-darwin`
+      : "x86_64-pc-windows-msvc",
     "--manifest-path",
     "src-tauri/Cargo.toml",
   ],

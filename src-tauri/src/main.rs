@@ -22,7 +22,8 @@ fn option(args: &[String], key: &str) -> Option<String> {
 }
 fn label_for(data_dir: &str) -> String {
     let mut hash = std::collections::hash_map::DefaultHasher::new();
-    data_dir.to_lowercase().hash(&mut hash);
+    if cfg!(windows) { data_dir.to_lowercase().hash(&mut hash); }
+    else { data_dir.hash(&mut hash); }
     format!("workbench-{:x}", hash.finish())
 }
 fn show(app: &tauri::AppHandle, label: &str) {
@@ -59,7 +60,8 @@ fn launch(app: &tauri::AppHandle, project: Option<String>, override_data: Option
     std::fs::create_dir_all(&app_data).map_err(|e| e.to_string())?;
     let data_dir = override_data.unwrap_or_else(|| app_data.join("workspace").to_string_lossy().into_owned());
     let root = application_root(app)?;
-    let node = if cfg!(debug_assertions) { PathBuf::from("node") } else { root.join("runtime/node.exe") };
+    let node = if cfg!(debug_assertions) { PathBuf::from("node") }
+        else { root.join(if cfg!(windows) { "runtime/node.exe" } else { "runtime/node" }) };
     let mut command = Command::new(node);
     command.arg(root.join("scripts/desktop-service.js")).current_dir(&root);
     if let Some(ref project) = project { command.args(["--project", project]); }
@@ -189,7 +191,7 @@ fn main() {
             let exit = MenuItem::with_id(app, "quit", "退出…", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &project, &monitor_item, &exit])?;
             TrayIconBuilder::new().icon(app.default_window_icon().unwrap().clone()).tooltip("Paperweave · 研究工作台")
-                .menu(&menu).show_menu_on_left_click(false)
+                .menu(&menu).show_menu_on_left_click(cfg!(target_os = "macos"))
                 .on_tray_icon_event(|tray, event| { if matches!(event, TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. }) { show_last(tray.app_handle()); } })
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => show_last(app),
@@ -204,5 +206,11 @@ fn main() {
             Ok(())
         })
         .build(tauri::generate_context!()).expect("Paperweave desktop initialization failed")
-        .run(|_app, event| { if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event { api.prevent_exit(); } });
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event { api.prevent_exit(); }
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event { show_last(app); }
+            #[cfg(not(target_os = "macos"))]
+            let _ = app;
+        });
 }

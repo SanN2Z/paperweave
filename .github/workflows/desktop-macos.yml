@@ -1,0 +1,59 @@
+name: macOS desktop
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['src-tauri/**', 'desktop-ui/**', 'scripts/desktop-*.js', 'scripts/macos-window.swift', '.github/workflows/desktop-macos.yml']
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+          - os: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npm run desktop:stage
+      - run: node scripts/desktop-licenses.js
+      - run: npm run desktop:build
+      - run: npx playwright install webkit
+      - name: Verify native app and packaged runtime
+        run: node scripts/desktop-macos-check.js
+      - name: Hash disk image
+        run: |
+          cd src-tauri/target/release/bundle/dmg
+          shasum -a 256 *.dmg > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Paperweave-macos-${{ matrix.arch }}
+          path: |
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/dmg/SHA256SUMS.txt
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-validation-${{ matrix.arch }}
+          path: |
+            artifacts/macos-*.png
+            artifacts/macos-validation.json
+          if-no-files-found: ignore
