@@ -1,0 +1,119 @@
+[
+  {
+    "file": "neuralnetwork.svg",
+    "title": "神经网络组件",
+    "tags": [
+      "网络",
+      "模型组件"
+    ],
+    "source": "https://github.com/tovacinni/cv-gfx-ml-icons/blob/75bc108cd5777b96d702449d871e9067642c75b0/neuralnetwork.svg",
+    "license": "CC0-1.0 · tovacinni"
+  },
+  {
+    "file": "deepneuralnetwork.svg",
+    "title": "深层网络组件",
+    "tags": [
+      "深度学习",
+      "模型组件"
+    ],
+    "source": "https://github.com/tovacinni/cv-gfx-ml-icons/blob/75bc108cd5777b96d702449d871e9067642c75b0/deepneuralnetwork.svg",
+    "license": "CC0-1.0 · tovacinni"
+  },
+  {
+    "file": "neuralfieldpaper.svg",
+    "title": "神经场论文组件",
+    "tags": [
+      "神经场",
+      "视觉"
+    ],
+    "source": "https://github.com/tovacinni/cv-gfx-ml-icons/blob/75bc108cd5777b96d702449d871e9067642c75b0/neuralfieldpaper.svg",
+    "license": "CC0-1.0 · tovacinni"
+  },
+  {
+    "file": "bunny.svg",
+    "title": "三维兔模型组件",
+    "tags": [
+      "三维",
+      "视觉"
+    ],
+    "source": "https://github.com/tovacinni/cv-gfx-ml-icons/blob/75bc108cd5777b96d702449d871e9067642c75b0/bunny.svg",
+    "license": "CC0-1.0 · tovacinni"
+  },
+  {
+    "file": "contributed/0322-1.pptx",
+    "title": "模型图组件模板 · 0322-1",
+    "tags": [
+      "模型图",
+      "可编辑组件",
+      "PPT"
+    ],
+    "source": "项目维护者提供的科研绘图模板合集",
+    "license": "随产品提供的贡献素材；原图与引用仍归各自作者，未另行确认为 MIT 或 CC0。使用时核对模板内的来源。"
+  },
+  {
+    "file": "contributed/0322.pptx",
+    "title": "模型图组件模板 · 0322",
+    "tags": [
+      "模型图",
+      "可编辑组件",
+      "PPT"
+    ],
+    "source": "项目维护者提供的科研绘图模板合集",
+    "license": "随产品提供的贡献素材；原图与引用仍归各自作者，未另行确认为 MIT 或 CC0。使用时核对模板内的来源。"
+  },
+  {
+    "file": "contributed/0329-2.pptx",
+    "title": "模型图组件模板 · 0329-2",
+    "tags": [
+      "模型图",
+      "可编辑组件",
+      "PPT"
+    ],
+    "source": "项目维护者提供的科研绘图模板合集",
+    "license": "随产品提供的贡献素材；原图与引用仍归各自作者，未另行确认为 MIT 或 CC0。使用时核对模板内的来源。"
+  },
+  {
+    "file": "contributed/0330.pptx",
+    "title": "模型图组件模板 · 0330",
+    "tags": [
+      "模型图",
+      "可编辑组件",
+      "PPT"
+    ],
+    "source": "项目维护者提供的科研绘图模板合集",
+    "license": "随产品提供的贡献素材；原图与引用仍归各自作者，未另行确认为 MIT 或 CC0。使用时核对模板内的来源。"
+  },
+  {
+    "file": "contributed/0404.pptx",
+    "title": "模型图组件模板 · 0404",
+    "tags": [
+      "模型图",
+      "可编辑组件",
+      "PPT"
+    ],
+    "source": "项目维护者提供的科研绘图模板合集",
+    "license": "随产品提供的贡献素材；原图与引用仍归各自作者，未另行确认为 MIT 或 CC0。使用时核对模板内的来源。"
+  },
+  {
+    "file": "contributed/0406.pptx",
+    "title": "模型图组件模板 · 0406",
+    "tags": [
+      "模型图",
+      "可编辑组件",
+      "PPT"
+    ],
+    "source": "项目维护者提供的科研绘图模板合集",
+    "license": "随产品提供的贡献素材；原图与引用仍归各自作者，未另行确认为 MIT 或 CC0。使用时核对模板内的来源。"
+  },
+  {
+    "file": "contributed/0408.pptx",
+    "title": "模型图组件模板 · 0408",
+    "tags": [
+      "模型图",
+      "可编辑组件",
+      "PPT"
+    ],
+    "source": "项目维护者提供的科研绘图模板合集",
+    "license": "随产品提供的贡献素材；原图与引用仍归各自作者，未另行确认为 MIT 或 CC0。使用时核对模板内的来源。"
+  }
+]

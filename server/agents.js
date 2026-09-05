@@ -22,5 +22,5 @@ export function detectAgent(preference = "auto", env = process.env) {
 // Fixed arguments only; no paper text, paths or browser input become shell commands.
 export function agentCommand(agent) {
   if (!["codex", "claude"].includes(agent)) return null;
-  return `${agent} 'Use the Paperweave MCP tools. First call get_context and read the research-workflow prompt. Briefly greet me in Chinese, mention any existing research context, and ask what I want to research or continue. During our conversation update the board and save source-linked notes using the workflow. If MCP is unavailable, explain how to reconnect it. Wait for my answer before starting research.'`;
+  return `${agent} 'Use the Paperweave MCP tools and research-workflow prompt. Read get_context silently as grounding. If there is a current reading question, answer that question in Chinese using the selected passage and read_paper as needed. Do not stop after retrieving context and do not recite workspace inventories or reading status unless I ask for status. If there is no question, greet briefly and ask what I want to work on. During discussion update the board and save useful source-linked notes. If MCP is unavailable, use the project bridge described in the agent guide.'`;
 }

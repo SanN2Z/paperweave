@@ -4,6 +4,8 @@ This is the repeatable contract for every field review, close reading, figure, r
 
 ## 1. Establish the workspace
 
+**Answer the person's question, not the dashboard inventory.** `get_context` is silent grounding, not a deliverable. “讲一下”, “这里什么意思” or clicking “让 Agent 解读” means: explain the selected source now. Read the relevant page with `read_paper` if necessary, then give the explanation in the same turn. Start with what the passage means, develop its mechanism/assumptions, and connect it to the paper. Do not end after a tool call. Do not list workspace name, paper counts, note counts, current page or unrelated open questions unless the person explicitly requested status. If source text is missing, state the concrete missing source and retrieve it; do not claim context retrieval completed the reading task.
+
 1. Call `get_context` before beginning and before answering a dashboard question. Read the active workspace title, research question, selected paper, page, selected passage, open questions and notes.
 2. For a new field, `create_workspace` with an explicit research question. For continuing work, use `list_papers` / `switch_workspace`; avoid mixing unrelated fields.
 3. State the scope, inclusion criteria and current gaps in a short `log_activity` entry. Only log useful progress and conclusions, not private chain-of-thought.
@@ -47,6 +49,8 @@ Use `add_relation` with a **direction** (source → target), a relation type and
 6. For updates, call `get_note`, merge the current Markdown, and send the returned `revision` as `expectedRevision`. Existing note updates use the FULL Markdown file, including frontmatter. If a conflict occurs, read again and merge; never discard a user's Obsidian edit.
 
 ## 5. Scientific figures and the PowerPoint workflow
+
+Start in the template library: `list_templates` → `get_template` → `use_template`. If the UI already created a working copy, reuse its figure ID and inspect `get_figure`. Modify that SVG/PPTX's vector components with the CLI, export a new preview, then `refresh_figure`. Preserve the template original, attribution and editable source. Finish the requested drawing, not a template-status report. See `AGENT_GUIDE.md` for the complete recipe.
 
 - Existing figure: `import_figure` with an absolute local SVG/PNG/JPEG/WebP path, source / license attribution and `paperIds`. Use your web tools to find assets and check usage rights; this tool itself does not scrape sites or download assets.
 - Model architecture: `draw_model` with explicit node IDs, labels, input/module/output groups and directed edges. State whether the diagram reproduces a source or is a proposed design. Nodes and edges are preserved as JSON, with a vector SVG preview.

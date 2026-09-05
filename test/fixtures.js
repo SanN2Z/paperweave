@@ -6,16 +6,24 @@ export async function freePort() {
   await new Promise((r) => s.close(r));
   return p;
 }
-export function samplePdf() {
+export function samplePdf(pageCount = 1) {
   const stream =
     "BT /F1 16 Tf 50 730 Td (Paperweave PDF integration fixture) Tj 0 -32 Td (Select this source passage to discuss it with your agent.) Tj ET";
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    `<< /Type /Pages /Kids [${Array.from({ length: pageCount }, (_, i) => `${4 + i * 2} 0 R`).join(" ")}] /Count ${pageCount} >>`,
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`,
   ];
+  for (let i = 0; i < pageCount; i++) {
+    const content = stream.replace(
+      "integration fixture",
+      `integration fixture - Page ${i + 1}`,
+    );
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${5 + i * 2} 0 R >>`,
+      `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`,
+    );
+  }
   let out = "%PDF-1.4\n",
     offsets = [0];
   objects.forEach((o, i) => {
@@ -23,10 +31,12 @@ export function samplePdf() {
     out += `${i + 1} 0 obj\n${o}\nendobj\n`;
   });
   const x = Buffer.byteLength(out);
-  out += `xref\n0 6\n0000000000 65535 f \n${offsets
+  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets
     .slice(1)
     .map((o) => `${String(o).padStart(10, "0")} 00000 n \n`)
-    .join("")}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${x}\n%%EOF`;
+    .join(
+      "",
+    )}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${x}\n%%EOF`;
   return Buffer.from(out);
 }
 export async function seedDemo(call) {

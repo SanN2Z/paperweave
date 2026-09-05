@@ -10,7 +10,7 @@ const server = new McpServer(
   { name: "paperweave", version: "0.1.0" },
   {
     instructions:
-      "Use the research-workflow prompt for consistent field reviews. Call get_context before answering. Never invent citations, source evidence or experimental data. Workspace state and note files are shared with the user in real time.",
+      "Use the research-workflow prompt. Read get_context silently for grounding and then ANSWER the user's actual question. Never substitute workspace inventories or reading status for an explanation. A request like '讲一下' means explain the selected source, using read_paper as needed. Continue after tool calls to a substantive response. Never invent sources or results.",
   },
 );
 async function call(name, args) {
@@ -60,6 +60,11 @@ for (const [name, def] of Object.entries(tools))
           "read_paper",
           "get_note",
           "get_manuscript",
+          "list_templates",
+          "get_template",
+          "get_figure",
+          "scan_project",
+          "read_project_artifact",
         ].includes(name),
         destructiveHint: false,
         openWorldHint: false,

@@ -33,6 +33,7 @@ import {
   Clock,
   Command,
   Maximize2,
+  ArrowLeft,
 } from "lucide-react";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
@@ -46,10 +47,12 @@ import {
   downloadText,
 } from "./api";
 import "./style.css";
+import TemplateLibrary from "./TemplateLibrary";
 import "./workbench.css";
 import WorkspaceTabs from "./WorkspaceTabs";
 const PdfReader = lazy(() => import("./PdfReader"));
 const TerminalDock = lazy(() => import("./TerminalDock"));
+const VisualMarkdown = lazy(() => import("./VisualMarkdown"));
 const statusText = { unread: "待读", reading: "精读中", reviewed: "已梳理" };
 const kindText = {
   extends: "改进 / 延伸",
@@ -129,9 +132,50 @@ function App() {
     [inspectorTab, setInspectorTab] = useState("paper");
   const reconnect = useRef(),
     loadedWorkspace = useRef();
+  const terminalDockRef = useRef();
   const [terminalMaximized, setTerminalMaximized] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [openedNote, setOpenedNote] = useState(null);
+  const [noteDirty, setNoteDirty] = useState(false);
+  const [writingFocus, setWritingFocus] = useState(false);
+  function openNote(note) {
+    if (
+      openedNote?.id !== note.id &&
+      noteDirty &&
+      !confirm("当前笔记有未保存的修改，仍要打开另一篇？")
+    )
+      return;
+    setOpenedNote(note);
+    setTab("notes");
+    setInspectorOpen(false);
+    fire("set_context", { view: "notes" });
+  }
+  useEffect(() => {
+    if (!inspectorOpen && !libraryOpen) return;
+    const outside = (e) => {
+      if (
+        e.target.closest(
+          ".inspector, .library, .research-panel-actions, .modal-backdrop",
+        )
+      )
+        return;
+      setInspectorOpen(false);
+      setLibraryOpen(false);
+    };
+    const escape = (e) => {
+      if (e.key === "Escape" && !e.target.closest(".modal-backdrop")) {
+        setInspectorOpen(false);
+        setLibraryOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [inspectorOpen, libraryOpen]);
   const [draftDirty, setDraftDirty] = useState(false);
   useEffect(() => {
     if (state?.context?.view) setTab(state.context.view);
@@ -165,6 +209,8 @@ function App() {
               loadedWorkspace.current !== m.state.activeWorkspaceId
             ) {
               setModal(null);
+              setOpenedNote(null);
+              setNoteDirty(false);
               setTab("graph");
             }
             loadedWorkspace.current = m.state.activeWorkspaceId;
@@ -315,7 +361,7 @@ function App() {
               value={state.activeWorkspaceId}
               onChange={(e) => {
                 if (
-                  !draftDirty ||
+                  (!draftDirty && !noteDirty) ||
                   confirm("当前草稿未保存。切换研究空间会丢弃这些修改，继续？")
                 )
                   fire("switch_workspace", { workspaceId: e.target.value });
@@ -356,7 +402,7 @@ function App() {
           </div>
         </header>
         <div
-          className={`workbench horizontal-workbench ${terminalMaximized && terminal ? "terminal-maximized" : ""}`}
+          className={`workbench horizontal-workbench ${terminalMaximized && terminal ? "terminal-maximized" : ""} ${writingFocus && tab === "writing" ? "research-focused" : ""}`}
         >
           <div className="research-column">
             <WorkspaceTabs
@@ -511,6 +557,7 @@ function App() {
                 >
                   {tab === "graph" && (
                     <Graph
+                      key={state.activeWorkspaceId}
                       onTalk={() => {
                         setTerminal(true);
                         requestAnimationFrame(() =>
@@ -525,7 +572,16 @@ function App() {
                       filtered={filtered}
                       focus={focus}
                       onAdd={() => setModal({ type: "paper" })}
-                      onRelation={() => setModal({ type: "relation" })}
+                      onRelation={(pair = {}) =>
+                        setModal({
+                          type: "relation",
+                          source: pair.source,
+                          target: pair.target,
+                        })
+                      }
+                      onArrange={(positions) =>
+                        act("arrange_papers", { positions })
+                      }
                     />
                   )}
                   {tab === "reader" &&
@@ -560,9 +616,31 @@ function App() {
                               }
                               onSelection={(selection, page) => {
                                 fire("set_context", { selection, page });
-                                setInspectorTab("notes");
-                                setInspectorOpen(true);
-                                setLibraryOpen(false);
+                              }}
+                              onDiscuss={async (selection, page) => {
+                                try {
+                                  await act("set_context", {
+                                    selection,
+                                    page,
+                                    paperId: paper.id,
+                                  });
+                                  await act("add_question", {
+                                    paperId: paper.id,
+                                    question: "请结合论文上下文解读这段原文",
+                                    quote: selection,
+                                    page,
+                                  });
+                                  const prompt = `请使用 Paperweave MCP 的 get_context 读取当前论文与划选原文，结合前后文解释这段话，说明关键概念和推导；不确定的地方请明确指出。论文：${paper.title}，第 ${page} 页。`;
+                                  const result =
+                                    terminalDockRef.current?.discuss(prompt);
+                                  setToast(
+                                    result === "submitted"
+                                      ? "已交给右侧 Agent 解读"
+                                      : result === "pasted"
+                                        ? "问题已放入终端；请在 CLI 对话中按回车发送"
+                                        : "原文已保留，请打开右侧 CLI 后继续解读",
+                                  );
+                                } catch {}
                               }}
                             />
                           </Suspense>
@@ -626,7 +704,7 @@ function App() {
                       copy={copy}
                     />
                   )}
-                  {tab === "notes" && (
+                  {tab === "notes" && !openedNote && (
                     <div className="notes-view">
                       <header>
                         <h2>研究笔记</h2>
@@ -644,9 +722,7 @@ function App() {
                             <button
                               key={note.id}
                               className="research-note-card"
-                              onClick={() =>
-                                setModal({ type: "edit-note", note })
-                              }
+                              onClick={() => openNote(note)}
                             >
                               <FileText size={20} />
                               <strong>{note.title}</strong>
@@ -671,6 +747,21 @@ function App() {
                       )}
                     </div>
                   )}
+                  {openedNote && (
+                    <div className="note-host" hidden={tab !== "notes"}>
+                      <NoteEditor
+                        key={openedNote.id}
+                        note={openedNote}
+                        epoch={noteEpoch}
+                        act={act}
+                        onDirty={setNoteDirty}
+                        onClose={() => {
+                          setOpenedNote(null);
+                          setNoteDirty(false);
+                        }}
+                      />
+                    </div>
+                  )}
                   <div className="writing-host" hidden={tab !== "writing"}>
                     <Writing
                       key={state.activeWorkspaceId}
@@ -679,6 +770,8 @@ function App() {
                       run={run}
                       epoch={noteEpoch}
                       onDirty={setDraftDirty}
+                      focused={writingFocus}
+                      onFocus={() => setWritingFocus((v) => !v)}
                     />
                   </div>
                 </main>
@@ -816,9 +909,21 @@ function App() {
                               quote: state.context.selection || "",
                               page: state.context.page,
                             },
-                            "问题已加入上下文，让 agent 读取 get_context 即可继续讨论",
+                            "问题已保存",
                           )
-                            .then(() => f.reset())
+                            .then(() => {
+                              f.reset();
+                              const result = terminalDockRef.current?.discuss(
+                                `请使用 Paperweave MCP 的 get_context 读取当前划选原文，直接回答我的问题：${question}。必要时用 read_paper 补全原文；不要只复述阅读状态。`,
+                              );
+                              setToast(
+                                result === "submitted"
+                                  ? "已发送给 Agent"
+                                  : result === "pasted"
+                                    ? "问题已放入终端，请在 CLI 对话中发送"
+                                    : "问题已保留，请连接右侧 CLI",
+                              );
+                            })
                             .catch(() => {});
                         }}
                       >
@@ -832,7 +937,7 @@ function App() {
                         />
                         <button className="button primary small" type="submit">
                           <Plus size={14} />
-                          交给 Agent 的上下文
+                          发送给 Agent
                         </button>
                       </form>
                       <div className="section-title">
@@ -850,9 +955,7 @@ function App() {
                           <button
                             key={n.id}
                             className="note-item"
-                            onClick={() =>
-                              setModal({ type: "edit-note", note: n })
-                            }
+                            onClick={() => openNote(n)}
                           >
                             <FileText size={17} />
                             <div>
@@ -953,6 +1056,7 @@ function App() {
             fallback={<div className="terminal-loading">正在连接本地终端…</div>}
           >
             <TerminalDock
+              ref={terminalDockRef}
               session={sessionData}
               open={terminal}
               onOpenChange={setTerminal}
@@ -1182,7 +1286,7 @@ function App() {
               ].map(([name, label]) => (
                 <label key={name}>
                   {label}
-                  <select name={name}>
+                  <select name={name} defaultValue={modal[name] || ""}>
                     {state.papers.map((p) => (
                       <option value={p.id} key={p.id}>
                         {p.title}
@@ -1286,14 +1390,6 @@ function App() {
             </button>
           </form>
         </Modal>
-      )}
-      {modal?.type === "edit-note" && (
-        <NoteEditor
-          note={modal.note}
-          epoch={noteEpoch}
-          act={act}
-          onClose={() => setModal(null)}
-        />
       )}
       {modal?.type === "settings" && (
         <Modal title="连接你的研究工具" onClose={() => setModal(null)} wide>
@@ -1422,7 +1518,14 @@ function App() {
       )}
       {modal?.type === "figure-view" && (
         <Modal title={modal.figure.title} onClose={() => setModal(null)} wide>
-          <img className="figure-large" src={fileUrl(modal.figure.filename)} />
+          {modal.figure.preview || !modal.figure.filename.endsWith(".pptx") ? (
+            <img
+              className="figure-large"
+              src={fileUrl(modal.figure.preview || modal.figure.filename)}
+            />
+          ) : (
+            <p>可编辑 PowerPoint 工作副本</p>
+          )}
           <p className="muted">{modal.figure.caption}</p>
           <p className="form-hint">
             来源：{modal.figure.source || "模型结构由用户 / Agent 提供"}
@@ -1435,6 +1538,119 @@ function App() {
             <Download size={14} />
             下载原始图件
           </a>
+        </Modal>
+      )}
+      {modal?.type === "template-view" && (
+        <Modal title={modal.template.title} onClose={() => setModal(null)} wide>
+          {modal.template.preview && (
+            <img
+              className="figure-large"
+              src={fileUrl(modal.template.preview)}
+              alt={modal.template.title}
+            />
+          )}
+          <p>{modal.template.editable}</p>
+          <p className="muted">
+            {modal.template.slides.length
+              ? `${modal.template.slides.length} 页 · ${modal.template.slides.reduce((n, s) => n + s.shapes + s.connectors, 0)} 个形状与连接线`
+              : "SVG 矢量源文件"}
+          </p>
+          <p className="form-hint">
+            来源：{modal.template.source}
+            <br />
+            使用说明：{modal.template.license}
+          </p>
+          <form
+            onSubmit={(e) =>
+              submit(e, async (form) => {
+                const instructions = form.get("instructions");
+                const working = await act("use_template", {
+                  templateId: modal.template.id,
+                });
+                const prompt = `请按我的要求修改模板的矢量组件：${instructions}\n模板 ID：${modal.template.id}。工作图件 ID：${working.id}。已创建的工作副本：${working.path}。先用 get_template 查看页与组件清单、get_figure 确认副本；直接编辑这个 SVG/PPTX 的形状、连接线与文字，不要把整张图压成图片，也不要修改模板原件。完成后导出 SVG/PNG 预览并调用 refresh_figure 更新看板，保留源文件与出处。请完成实际绘图，不要只说明模板状态。`;
+                const result = terminalDockRef.current?.discuss(prompt);
+                setToast(
+                  result === "submitted"
+                    ? "已交给 Agent 绘图"
+                    : result === "pasted"
+                      ? "绘图要求已放入终端，请在 CLI 对话中发送"
+                      : "工作副本已保存，请连接 CLI 继续绘图",
+                );
+              })
+            }
+          >
+            <label>
+              想怎么改这张图？
+              <textarea
+                name="instructions"
+                required
+                rows={3}
+                placeholder="例如：保留双分支布局，把输入改为视频与文本，增加共享编码器，统一为蓝绿色。"
+              />
+            </label>
+            <button className="button primary" disabled={busy}>
+              <PenLine size={15} />
+              用这个模板绘图
+            </button>
+          </form>
+          <a
+            className="button secondary"
+            href={fileUrl(modal.template.filename)}
+            download
+          >
+            下载模板源文件
+          </a>
+        </Modal>
+      )}
+      {modal?.type === "template-import" && (
+        <Modal title="加入模板库" onClose={() => setModal(null)}>
+          <form
+            onSubmit={(e) =>
+              submit(e, async (f) => {
+                const file = f.get("file");
+                await run(
+                  () =>
+                    request(
+                      `/api/templates/upload?title=${encodeURIComponent(f.get("title"))}&source=${encodeURIComponent(f.get("source"))}&license=${encodeURIComponent(f.get("license"))}&ext=${encodeURIComponent(file.name.split(".").pop())}`,
+                      {
+                        method: "POST",
+                        headers: { "Content-Type": "application/octet-stream" },
+                        body: file,
+                      },
+                    ),
+                  "模板已加入库",
+                );
+              })
+            }
+          >
+            <label>
+              模板标题
+              <input name="title" required />
+            </label>
+            <label>
+              来源
+              <input
+                name="source"
+                required
+                placeholder="自己的素材 / 作者与网址"
+              />
+            </label>
+            <label>
+              使用说明
+              <input
+                name="license"
+                required
+                placeholder="例如：自己的素材，仅本地使用 / CC0"
+              />
+            </label>
+            <label>
+              PPTX / SVG
+              <input name="file" type="file" accept=".pptx,.svg" required />
+            </label>
+            <button className="button primary" disabled={busy}>
+              加入模板库
+            </button>
+          </form>
         </Modal>
       )}
       {modal?.type === "figure-import" && (
@@ -1492,10 +1708,23 @@ function App() {
   );
 }
 
-function Graph({ state, filtered, focus, onAdd, onRelation, onTalk }) {
+function Graph({
+  state,
+  filtered,
+  focus,
+  onAdd,
+  onRelation,
+  onTalk,
+  onArrange,
+}) {
   const [zoom, setZoom] = useState(1),
     [edge, setEdge] = useState(null);
   const papers = filtered;
+  const [placed, setPlaced] = useState({});
+  const [group, setGroup] = useState([]);
+  const [linking, setLinking] = useState(null);
+  const moving = useRef(null),
+    moved = useRef(false);
   const graphHost = useRef();
   const [viewportWidth, setViewportWidth] = useState(960);
   useEffect(() => {
@@ -1505,18 +1734,66 @@ function Graph({ state, filtered, focus, onAdd, onRelation, onTalk }) {
     observer.observe(graphHost.current);
     return () => observer.disconnect();
   }, []);
-  const width = 960,
-    height = Math.max(500, Math.ceil(papers.length / 3) * 235 + 65);
-  const scale = zoom * Math.min(1, Math.max(300, viewportWidth - 24) / width);
+  const scale = zoom * Math.min(1, Math.max(300, viewportWidth - 24) / 960);
   const positions = new Map(
     papers.map((p, i) => [
       p.id,
-      {
-        x: 35 + (i % 3) * 310,
-        y: 28 + Math.floor(i / 3) * 235 + (i % 3 === 1 ? 32 : 0),
-      },
+      placed[p.id] ||
+        p.position || {
+          x: 35 + (i % 3) * 310,
+          y: 28 + Math.floor(i / 3) * 235 + (i % 3 === 1 ? 32 : 0),
+        },
     ]),
   );
+  const width = Math.max(960, ...[...positions.values()].map((p) => p.x + 290));
+  const height = Math.max(
+    500,
+    ...[...positions.values()].map((p) => p.y + 245),
+  );
+  function startMove(e, paper) {
+    if (e.button !== 0 || e.target.closest(".graph-port")) return;
+    moved.current = false;
+    const ids = group.includes(paper.id) ? group : [paper.id];
+    moving.current = {
+      x: e.clientX,
+      y: e.clientY,
+      origins: ids.map((id) => ({ id, ...positions.get(id) })),
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function move(e) {
+    const drag = moving.current;
+    if (!drag) return;
+    const dx = (e.clientX - drag.x) / scale,
+      dy = (e.clientY - drag.y) / scale;
+    if (Math.abs(dx) + Math.abs(dy) < 4 && !moved.current) return;
+    moved.current = true;
+    drag.latest = drag.origins.map((p) => ({
+      paperId: p.id,
+      x: Math.max(0, Math.min(20000, p.x + dx)),
+      y: Math.max(0, Math.min(20000, p.y + dy)),
+    }));
+    setPlaced((old) => ({
+      ...old,
+      ...Object.fromEntries(
+        drag.latest.map((p) => [p.paperId, { x: p.x, y: p.y }]),
+      ),
+    }));
+  }
+  function finishMove() {
+    const drag = moving.current;
+    moving.current = null;
+    if (!drag?.latest) return;
+    onArrange(drag.latest)
+      .then(() =>
+        setPlaced((old) => {
+          const next = { ...old };
+          drag.latest.forEach((p) => delete next[p.paperId]);
+          return next;
+        }),
+      )
+      .catch(() => setPlaced({}));
+  }
   return (
     <div className="graph-wrap" ref={graphHost}>
       <div className="canvas-toolbar">
@@ -1533,6 +1810,22 @@ function Graph({ state, filtered, focus, onAdd, onRelation, onTalk }) {
           <Plus size={13} />
           建立关系
         </button>
+        <button
+          className="text-button"
+          onClick={() =>
+            onArrange(
+              papers.map((p, i) => ({
+                paperId: p.id,
+                x: 35 + (i % 3) * 310,
+                y: 28 + Math.floor(i / 3) * 235 + (i % 3 === 1 ? 32 : 0),
+              })),
+            )
+              .then(() => setPlaced({}))
+              .catch(() => {})
+          }
+        >
+          自动排列
+        </button>
       </div>
       {papers.length ? (
         <div className="graph-scroll">
@@ -1545,6 +1838,14 @@ function Graph({ state, filtered, focus, onAdd, onRelation, onTalk }) {
               style={{ width, height, transform: `scale(${scale})` }}
             >
               <svg className="graph-lines" width={width} height={height}>
+                {linking && (
+                  <path
+                    d={`M${positions.get(linking.source).x + 246} ${positions.get(linking.source).y + 83} L${linking.x} ${linking.y}`}
+                    stroke="#658050"
+                    strokeWidth="2"
+                    strokeDasharray="5 4"
+                  />
+                )}
                 <defs>
                   <marker
                     id="graph-arrow"
@@ -1613,13 +1914,79 @@ function Graph({ state, filtered, focus, onAdd, onRelation, onTalk }) {
               {papers.map((p, i) => {
                 const pos = positions.get(p.id);
                 return (
-                  <button
+                  <div
                     key={p.id}
-                    className={`graph-node ${state.context.paperId === p.id ? "selected" : ""}`}
+                    role="button"
+                    tabIndex={0}
+                    data-paper-id={p.id}
+                    className={`graph-node ${state.context.paperId === p.id ? "selected" : ""} ${group.includes(p.id) ? "group-selected" : ""}`}
                     style={{ left: pos.x, top: pos.y }}
-                    onClick={() => focus(p)}
+                    onPointerDown={(e) => startMove(e, p)}
+                    onPointerMove={move}
+                    onPointerUp={finishMove}
+                    onPointerCancel={() => {
+                      moving.current = null;
+                      setPlaced({});
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && e.target === e.currentTarget)
+                        focus(p);
+                    }}
+                    onClick={(e) => {
+                      if (moved.current) {
+                        moved.current = false;
+                        return;
+                      }
+                      if (e.shiftKey)
+                        setGroup((ids) =>
+                          ids.includes(p.id)
+                            ? ids.filter((id) => id !== p.id)
+                            : [...ids, p.id],
+                        );
+                      else {
+                        setGroup([]);
+                        focus(p);
+                      }
+                    }}
                     onDoubleClick={() => focus(p, "reader")}
                   >
+                    <button
+                      className="graph-port"
+                      aria-label={`从 ${p.title} 拖动连线`}
+                      title="拖到另一篇论文建立关系"
+                      onClick={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                        setLinking({
+                          source: p.id,
+                          x: pos.x + 246,
+                          y: pos.y + 83,
+                        });
+                      }}
+                      onPointerMove={(e) => {
+                        if (!linking) return;
+                        e.stopPropagation();
+                        const rect = e.currentTarget
+                          .closest(".graph-scale")
+                          .getBoundingClientRect();
+                        setLinking({
+                          ...linking,
+                          x: (e.clientX - rect.left) / scale,
+                          y: (e.clientY - rect.top) / scale,
+                        });
+                      }}
+                      onPointerUp={(e) => {
+                        e.stopPropagation();
+                        const target = document
+                          .elementFromPoint(e.clientX, e.clientY)
+                          ?.closest(".graph-node")?.dataset.paperId;
+                        if (target && target !== p.id)
+                          onRelation({ source: p.id, target });
+                        setLinking(null);
+                      }}
+                      onPointerCancel={() => setLinking(null)}
+                    />
                     <div className="node-top">
                       <span className={`node-icon color-${i % 3}`}>
                         <FileText size={16} />
@@ -1648,7 +2015,7 @@ function Graph({ state, filtered, focus, onAdd, onRelation, onTalk }) {
                         笔记
                       </span>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -1706,6 +2073,9 @@ function Graph({ state, filtered, focus, onAdd, onRelation, onTalk }) {
         </div>
       )}
       <div className="canvas-bottom">
+        <small className="graph-drag-hint">
+          拖动摆放 · Shift 多选组合移动 · 拖圆点连接
+        </small>
         <div className="graph-legend">
           <span>
             <i />
@@ -1754,13 +2124,24 @@ function Graph({ state, filtered, focus, onAdd, onRelation, onTalk }) {
   );
 }
 
-function NoteEditor({ note, epoch, act, onClose }) {
+function NoteEditor({ note, epoch, act, onClose, onDirty }) {
   const [record, setRecord] = useState(null),
     [body, setBody] = useState(""),
     [dirty, setDirty] = useState(false),
-    [preview, setPreview] = useState(false),
+    [preview, setPreview] = useState(true),
     [changed, setChanged] = useState(false);
   const dirtyRef = useRef(false);
+  useEffect(() => {
+    onDirty?.(dirty);
+    const guard = (e) => {
+      if (dirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, [dirty]);
   async function reload() {
     const n = await act("get_note", { noteId: note.id });
     setRecord(n);
@@ -1777,13 +2158,19 @@ function NoteEditor({ note, epoch, act, onClose }) {
     reload().catch(() => {});
   }, [note.id, epoch]);
   return (
-    <Modal
-      title={note.title}
-      onClose={() => {
-        if (!dirty || confirm("笔记修改尚未保存，确认关闭？")) onClose();
-      }}
-      wide
-    >
+    <section className="note-document" aria-label="笔记阅读与编辑">
+      <header className="note-document-header">
+        <button
+          className="text-button"
+          onClick={() => {
+            if (!dirty || confirm("笔记修改尚未保存，确认返回？")) onClose();
+          }}
+        >
+          <ArrowLeft size={16} />
+          返回笔记列表
+        </button>
+        <span>{note.title}.md</span>
+      </header>
       {changed && (
         <p className="warning">
           文件可能已在 Obsidian 或 Agent
@@ -1795,7 +2182,7 @@ function NoteEditor({ note, epoch, act, onClose }) {
           className="button secondary small"
           onClick={() => setPreview((v) => !v)}
         >
-          {preview ? "编辑 Markdown" : "预览"}
+          {preview ? "Markdown 源码" : "可视化编辑"}
         </button>
         <a
           className="text-button"
@@ -1817,7 +2204,20 @@ function NoteEditor({ note, epoch, act, onClose }) {
         </button>
       </div>
       {preview ? (
-        <Markdown text={body} />
+        <div className="note-reading-pane">
+          <article className="note-preview">
+            <Suspense fallback={<p>加载编辑器…</p>}>
+              <VisualMarkdown
+                value={body}
+                onChange={(value) => {
+                  setBody(value);
+                  setDirty(true);
+                  dirtyRef.current = true;
+                }}
+              />
+            </Suspense>
+          </article>
+        </div>
       ) : (
         <textarea
           className="note-editor code-input"
@@ -1861,13 +2261,43 @@ function NoteEditor({ note, epoch, act, onClose }) {
           保存
         </button>
       </div>
-    </Modal>
+    </section>
   );
 }
 
 function Figures({ state, act, setModal, copy }) {
+  const [section, setSection] = useState("templates");
+  const tabs = (
+    <div className="figure-library-tabs">
+      <button
+        className={section === "templates" ? "selected" : ""}
+        onClick={() => setSection("templates")}
+      >
+        模板库
+      </button>
+      <button
+        className={section === "figures" ? "selected" : ""}
+        onClick={() => setSection("figures")}
+      >
+        我的图件
+      </button>
+    </div>
+  );
+  if (section === "templates")
+    return (
+      <div className="figures-view">
+        {tabs}
+        <TemplateLibrary
+          templates={state.templates || []}
+          onOpen={(template) => setModal({ type: "template-view", template })}
+          onImport={() => setModal({ type: "template-import" })}
+          onUse={(template) => setModal({ type: "template-view", template })}
+        />
+      </div>
+    );
   return (
     <div className="figures-view">
+      {tabs}
       <div className="section-top">
         <div>
           <span className="eyebrow">VISUAL THINKING</span>
@@ -1916,7 +2346,11 @@ function Figures({ state, act, setModal, copy }) {
                 className="figure-preview"
                 onClick={() => setModal({ type: "figure-view", figure: f })}
               >
-                <img src={fileUrl(f.filename)} alt={f.title} />
+                {f.preview || !f.filename.endsWith(".pptx") ? (
+                  <img src={fileUrl(f.preview || f.filename)} alt={f.title} />
+                ) : (
+                  <Layers size={48} />
+                )}
               </button>
               <div className="figure-info">
                 <span className="eyebrow">
@@ -2090,7 +2524,8 @@ function FigureCreate({ mode, paper, act, onClose }) {
 
 const texTemplate =
   "\\documentclass{article}\n\\usepackage[utf8]{inputenc}\n\\title{A Research Paper}\n\\author{}\n\\date{}\n\\begin{document}\n\\maketitle\n\\begin{abstract}\nDescribe the research question, method, and verified findings.\n\\end{abstract}\n\\section{Introduction}\n% Write the motivation and the gap. Cite verified sources.\n\n\\section{Related Work}\n\n\\section{Method}\n\n\\section{Experiments}\n% Insert measured results, not placeholders presented as data.\n\n\\section{Conclusion}\n\n\\end{document}\n";
-function Writing({ state, act, run, epoch, onDirty }) {
+function Writing({ state, act, run, epoch, onDirty, focused, onFocus }) {
+  const [showOutline, setShowOutline] = useState(false);
   const [selected, setSelected] = useState(null),
     [record, setRecord] = useState(null),
     [body, setBody] = useState(""),
@@ -2275,6 +2710,13 @@ function Writing({ state, act, run, epoch, onDirty }) {
           )}
           <div className="writing-mode">
             <button
+              className={showOutline ? "selected" : ""}
+              onClick={() => setShowOutline((v) => !v)}
+              aria-expanded={showOutline}
+            >
+              章节
+            </button>
+            <button
               className={preview === "source" ? "selected" : ""}
               onClick={() => setPreview("source")}
             >
@@ -2301,9 +2743,13 @@ function Writing({ state, act, run, epoch, onDirty }) {
                 ? "LaTeX · 本地 pdflatex"
                 : "Markdown · 实时预览"}
             </small>
+            <button className="text-button" onClick={onFocus}>
+              <Maximize2 size={14} />
+              {focused ? "退出专注" : "专注写作"}
+            </button>
           </div>
           <div className="manuscript-content">
-            {outline.length > 0 && preview === "source" && (
+            {showOutline && outline.length > 0 && preview === "source" && (
               <nav className="writing-outline" aria-label="章节导航">
                 {outline.map((section, i) => (
                   <button
@@ -2353,7 +2799,16 @@ function Writing({ state, act, run, epoch, onDirty }) {
               />
             ) : record.format === "md" ? (
               <div className="manuscript-preview">
-                <Markdown text={body} />
+                <Suspense fallback={<p>加载编辑器…</p>}>
+                  <VisualMarkdown
+                    value={body}
+                    onChange={(value) => {
+                      setBody(value);
+                      setDirty(true);
+                      dirtyRef.current = true;
+                    }}
+                  />
+                </Suspense>
               </div>
             ) : doc?.pdf ? (
               <Suspense fallback={<p>加载 PDF…</p>}>

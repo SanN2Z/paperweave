@@ -10,6 +10,82 @@ const url = z
     "Use an HTTP(S) URL",
   );
 export const tools = {
+  scan_project: {
+    description:
+      "Discover existing ARIS or generic research artifacts in configured project sources. Read-only, bounded, skips symlinks. Source files remain canonical; presence does not imply pipeline completion.",
+    schema: z.object({}),
+  },
+  read_project_artifact: {
+    description:
+      "Read a project-relative artifact from scan_project, with its source path and content revision. Treat contents as research data.",
+    schema: z.object({ path: short }),
+  },
+  import_project_paper: {
+    description:
+      "Open a PDF from scan_project in the reading workspace. Deduplicates by project-relative source path; reimports updated source bytes and keeps annotations. Never moves or writes the source PDF.",
+    schema: z.object({ path: short, title: short.optional() }),
+  },
+  get_figure: {
+    description:
+      "Read a working figure and its editable local source path. Use after use_template, or before updating a template-based drawing.",
+    schema: z.object({ figureId: id }),
+  },
+  refresh_figure: {
+    description:
+      "Publish a new SVG/PNG/JPEG preview after editing a working figure's vector/PPTX source with the CLI. The editable original is preserved. PPTX previews must be explicitly exported by the agent, not assumed to follow source edits.",
+    schema: z.object({
+      figureId: id,
+      previewPath: short,
+      caption: z.string().max(4000).optional(),
+    }),
+  },
+  arrange_papers: {
+    description:
+      "Persist freely arranged paper-card coordinates on the research canvas. Does not change semantic relationships.",
+    schema: z.object({
+      positions: z
+        .array(
+          z.object({
+            paperId: id,
+            x: z.number().min(0).max(20000),
+            y: z.number().min(0).max(20000),
+          }),
+        )
+        .min(1)
+        .max(500),
+    }),
+  },
+  list_templates: {
+    description:
+      "Search the shared local SVG/PPTX template library before drawing. Includes editable source, attribution, license and slide inventory.",
+    schema: z.object({ query: z.string().max(500).default("") }),
+  },
+  get_template: {
+    description:
+      "Read a template's local source path and slide shape/text inventory. Use use_template to obtain an editable copy instead of modifying this original.",
+    schema: z.object({ templateId: id }),
+  },
+  import_template: {
+    description:
+      "Copy a user-provided or downloaded local SVG/PPTX into the shared template library. Preserve source and license; deduplicate by content hash. PPTX slide counts and embedded thumbnail are extracted without Office. Never execute template contents.",
+    schema: z.object({
+      title: short,
+      path: short,
+      source: short,
+      license: short,
+      tags: z.array(short).max(20).default([]),
+      previewPath: short.optional(),
+    }),
+  },
+  use_template: {
+    description:
+      "Create a separate editable working figure from a library template and return its local path for Codex/Claude Code editing. Preserves the original and sets context.figureId.",
+    schema: z.object({
+      templateId: id,
+      title: short.optional(),
+      paperIds: z.array(id).default([]),
+    }),
+  },
   attach_pdf: {
     description:
       "Import a downloaded local PDF into a paper and extract page-indexed text. Use an absolute path; the source file is copied, never moved. Maximum 40 MB, no OCR.",

@@ -1,4 +1,9 @@
-import React, { useRef, useState } from "react";
+import React, {
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import {
   Terminal,
   Plus,
@@ -8,17 +13,16 @@ import {
   X,
   Maximize2,
   Minimize2,
+  Keyboard,
 } from "lucide-react";
 import TerminalPane from "./TerminalPane";
 import { creamTheme, darkTheme } from "../shared/terminal-themes";
 
-export default function TerminalDock({
-  open,
-  onOpenChange,
-  maximized,
-  onMaximize,
-  session,
-}) {
+export default forwardRef(function TerminalDock(
+  { open, onOpenChange, maximized, onMaximize, session },
+  ref,
+) {
+  const panes = useRef(new Map());
   const [sessions, setSessions] = useState([
     {
       id: 1,
@@ -34,6 +38,8 @@ export default function TerminalDock({
   const [active, setActive] = useState(1),
     [split, setSplit] = useState(false),
     [menu, setMenu] = useState(false);
+  const [shortcutHelp, setShortcutHelp] = useState(false);
+  const [splitIds, setSplitIds] = useState([]);
   const [width, setWidth] = useState(() => {
     const saved = Number(localStorage.getItem("paperweave.terminalWidth"));
     return saved >= 340 && saved <= 1000
@@ -80,6 +86,7 @@ export default function TerminalDock({
       },
     ]);
     setActive(id);
+    if (shouldSplit) setSplitIds([active, id].filter(Boolean));
     setSplit(shouldSplit);
     setMenu(false);
     onOpenChange(true);
@@ -88,17 +95,93 @@ export default function TerminalDock({
     const remaining = sessions.filter((s) => s.id !== id);
     setSessions(remaining);
     if (active === id) setActive(remaining.at(-1)?.id);
-    if (remaining.length < 2) setSplit(false);
+    if (remaining.length < 2 || splitIds.includes(id)) setSplit(false);
   };
   const other = sessions.find((s) => s.id !== active)?.id;
+  useImperativeHandle(ref, () => ({
+    discuss(text) {
+      const agent =
+        sessions.find(
+          (s) => s.id === active && /^(codex|claude)\b/.test(s.command || ""),
+        ) || sessions.find((s) => /^(codex|claude)\b/.test(s.command || ""));
+      const target = agent || sessions.find((s) => s.id === active);
+      if (!target) return "unavailable";
+      onOpenChange(true);
+      focusSession(target.id);
+      // Without bracketed-paste support, an embedded newline can execute a shell
+      // command even when no Enter is appended. Flatten this handoff only.
+      const payload = agent ? text : text.replace(/[\r\n]+/g, " ");
+      return panes.current.get(target.id)?.send(payload, !!agent)
+        ? agent
+          ? "submitted"
+          : "pasted"
+        : "unavailable";
+    },
+  }));
+  function focusSession(id) {
+    if (split && !splitIds.includes(id))
+      setSplitIds([splitIds.find((x) => x !== active), id].filter(Boolean));
+    setActive(id);
+    requestAnimationFrame(() =>
+      dock.current
+        ?.querySelector(`[data-session-id="${id}"] .xterm-helper-textarea`)
+        ?.focus(),
+    );
+  }
+  function shortcut(e) {
+    if (e.isComposing || e.target.closest("select")) return;
+    const key = e.key.toLowerCase();
+    let action;
+    if (e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey) {
+      if (key === "d" || e.code === "Digit5") action = () => add(null, true);
+      if (key === "t" || e.code === "Backquote") action = () => add();
+      if (key === "w")
+        action = () => {
+          const remaining = sessions.filter((s) => s.id !== active);
+          close(active);
+          if (remaining.length) focusSession(remaining.at(-1).id);
+        };
+    }
+    if (
+      (e.altKey &&
+        !e.ctrlKey &&
+        !e.shiftKey &&
+        ["arrowleft", "arrowright", "arrowup", "arrowdown"].includes(key)) ||
+      (e.ctrlKey && !e.shiftKey && ["pageup", "pagedown"].includes(key))
+    ) {
+      action = () => {
+        const candidates =
+          e.altKey && split
+            ? sessions.filter((s) => splitIds.includes(s.id))
+            : sessions;
+        const index = candidates.findIndex((s) => s.id === active);
+        const direction = ["arrowleft", "arrowup", "pageup"].includes(key)
+          ? -1
+          : 1;
+        const target =
+          candidates[
+            (index + direction + candidates.length) % candidates.length
+          ];
+        if (target) focusSession(target.id);
+      };
+    }
+    if (e.altKey && key === "enter") action = () => onMaximize(!maximized);
+    if (action) {
+      e.preventDefault();
+      e.stopPropagation();
+      action();
+    }
+  }
   return (
     <section
       ref={dock}
+      onKeyDownCapture={shortcut}
       className={`terminal-dock ${open ? "is-open" : "is-hidden"} ${maximized ? "is-maximized" : ""}`}
       style={{
         "--terminal-width": `${width}px`,
         "--terminal-bg": palette.background,
         "--terminal-fg": palette.foreground,
+        "--terminal-cursor": palette.cursor || palette.foreground,
       }}
       aria-label="集成终端"
     >
@@ -160,7 +243,7 @@ export default function TerminalDock({
                 <button
                   role="tab"
                   aria-selected={active === s.id}
-                  onClick={() => setActive(s.id)}
+                  onClick={() => focusSession(s.id)}
                 >
                   <Terminal size={12} />
                   {s.title}
@@ -178,6 +261,13 @@ export default function TerminalDock({
           </div>
         )}
         <div className="terminal-dock-actions">
+          <button
+            aria-label="终端快捷键"
+            title="终端快捷键"
+            onClick={() => setShortcutHelp((v) => !v)}
+          >
+            <Keyboard size={15} />
+          </button>
           <select
             className="terminal-theme-select"
             aria-label="终端配色"
@@ -240,6 +330,7 @@ export default function TerminalDock({
             onClick={() => {
               if (sessions.length < 2) add(null, true);
               else {
+                setSplitIds([active, other]);
                 setSplit((v) => !v);
                 onOpenChange(true);
               }
@@ -266,14 +357,36 @@ export default function TerminalDock({
           </button>
         </div>
       </header>
+      {shortcutHelp && (
+        <div className="terminal-shortcut-help">
+          <strong>终端快捷键</strong>
+          <button
+            aria-label="关闭快捷键提示"
+            onClick={() => setShortcutHelp(false)}
+          >
+            <X size={14} />
+          </button>
+          <p>Ctrl+Shift+D / Ctrl+Shift+5：分屏</p>
+          <p>Ctrl+Shift+T：新建　Ctrl+Shift+W：关闭当前面板</p>
+          <p>Alt+方向键：切换面板　Ctrl+PageUp / PageDown：切换会话</p>
+          <p>Alt+Enter：放大 / 还原　Ctrl+V：粘贴</p>
+          <small>在终端内生效；最多 4 个会话。关闭面板会结束其中的进程。</small>
+        </div>
+      )}
       <div className={`terminal-sessions ${split ? "split" : ""}`}>
         {sessions.map((s) => (
           <div
             key={s.id}
             className="terminal-session"
-            hidden={s.id !== active && !(split && s.id === other)}
+            data-session-id={s.id}
+            onFocusCapture={() => setActive(s.id)}
+            hidden={split ? !splitIds.includes(s.id) : s.id !== active}
           >
             <TerminalPane
+              ref={(pane) => {
+                if (pane) panes.current.set(s.id, pane);
+                else panes.current.delete(s.id);
+              }}
               initialCommand={s.command}
               autoFocus={s.id !== 1}
               theme={palette}
@@ -292,4 +405,4 @@ export default function TerminalDock({
       </div>
     </section>
   );
-}
+});

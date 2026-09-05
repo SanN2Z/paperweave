@@ -1,19 +1,39 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  forwardRef,
+  useImperativeHandle,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { wsUrl } from "./api";
-export default function TerminalPane({
-  initialCommand = null,
-  autoFocus = false,
-  theme,
-}) {
+export default forwardRef(function TerminalPane(
+  { initialCommand = null, autoFocus = false, theme },
+  ref,
+) {
   const terminalRef = useRef();
   const [clipboardError, setClipboardError] = useState("");
   const host = useRef(),
     socket = useRef(),
     [status, setStatus] = useState("连接中"),
     [epoch, setEpoch] = useState(0);
+  useImperativeHandle(ref, () => ({
+    send(text, submit = false) {
+      const ws = socket.current;
+      if (ws?.readyState !== WebSocket.OPEN || !terminalRef.current)
+        return false;
+      terminalRef.current.paste(text);
+      terminalRef.current.focus();
+      if (submit)
+        setTimeout(() => {
+          if (ws.readyState === WebSocket.OPEN)
+            ws.send(JSON.stringify({ type: "input", data: "\r" }));
+        }, 80);
+      return true;
+    },
+  }));
   useEffect(() => {
     setStatus("连接中");
     const term = new Terminal({
@@ -21,6 +41,9 @@ export default function TerminalPane({
       fontSize: 14,
       lineHeight: 1.25,
       cursorBlink: false,
+      cursorStyle: "bar",
+      cursorWidth: 1,
+      cursorInactiveStyle: "bar",
       screenReaderMode: true,
       theme,
       scrollback: 6000,
@@ -148,4 +171,4 @@ export default function TerminalPane({
       />
     </div>
   );
-}
+});

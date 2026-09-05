@@ -1,5 +1,7 @@
 # Agent installation guide
 
+**Existing research project:** Install the code separately, run `npm ci` and `npm run build`, then `node /absolute/installation/scripts/project.js init --project /absolute/research/project`. Follow [docs/PROJECTS.md](docs/PROJECTS.md). This adds a `paperweave/` notes workspace, private runtime and project MCP entries while preserving experiments. Keep the current external CLI conversation; use the `project.js context|call` bridge if it cannot reload tools. Do not register a global MCP pointing at a different workspace. The standalone steps below apply when no existing research project was supplied.
+
 Install Paperweave as a local workbench. The user owns the machine, CLI settings and Obsidian vault. Do not upload local papers, notes, CLI credentials or `.paperweave/` to GitHub.
 
 **Missing dependencies are part of the installation task.** Read [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md), detect the actual OS and repair missing prerequisites instead of handing the user an unexplained dependency list. After Node is available, `node scripts/doctor.js --json` provides machine-readable diagnostics. Respect the host agent's existing permissions; only stop for a genuinely required OS interaction or authorization.

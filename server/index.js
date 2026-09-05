@@ -8,6 +8,7 @@ import chokidar from "chokidar";
 import { configuration } from "./config.js";
 import { Store } from "./store.js";
 import { terminalTheme } from "./terminal-theme.js";
+import { resolveShell, terminalEnvironment } from "./shell.js";
 import { detectAgent, agentCommand } from "./agents.js";
 import { extractPdf } from "./pdf.js";
 import "../scripts/prepare-pty.js";
@@ -25,6 +26,7 @@ export async function startServer(config, { dev = false } = {}) {
     appearance: config.terminalAppearance,
   });
   const preferredAgent = config.agent ? detectAgent(config.agent) : null;
+  const terminalShell = await resolveShell(config);
   const app = express(),
     server = http.createServer(app),
     sockets = new WebSocketServer({ noServer: true, maxPayload: 128 * 1024 });
@@ -79,6 +81,32 @@ export async function startServer(config, { dev = false } = {}) {
     next();
   });
   app.get("/api/state", (_req, res) => res.json(store.snapshot()));
+  app.post(
+    "/api/templates/upload",
+    express.raw({ type: "application/octet-stream", limit: "80mb" }),
+    async (req, res) => {
+      const ext = String(req.query.ext || "").toLowerCase();
+      if (!["pptx", "svg"].includes(ext) || !Buffer.isBuffer(req.body))
+        throw new Error("Choose a PPTX or SVG template");
+      const file = path.join(
+        config.dataDir,
+        `upload-${randomBytes(10).toString("hex")}.${ext}`,
+      );
+      await fs.writeFile(file, req.body);
+      try {
+        res.json(
+          await store.call("import_template", {
+            path: file,
+            title: req.query.title,
+            source: req.query.source,
+            license: req.query.license,
+          }),
+        );
+      } finally {
+        await fs.unlink(file);
+      }
+    },
+  );
   app.post(
     "/api/figures/upload",
     express.raw({ type: "application/octet-stream", limit: "20mb" }),
@@ -136,7 +164,13 @@ export async function startServer(config, { dev = false } = {}) {
     const exists =
       store.state.papers.some((p) => p.pdf === filename) ||
       store.state.figures.some(
-        (f) => f.filename === filename || f.pptx === filename,
+        (f) =>
+          f.filename === filename ||
+          f.pptx === filename ||
+          f.preview === filename,
+      ) ||
+      store.state.templates.some(
+        (t) => t.filename === filename || t.preview === filename,
       ) ||
       store.state.manuscripts.some((m) => m.pdf === filename);
     if (
@@ -314,25 +348,14 @@ export async function startServer(config, { dev = false } = {}) {
       }
       let term;
       try {
-        const shell =
-          process.platform === "win32"
-            ? "powershell.exe"
-            : process.env.SHELL || "/bin/bash";
-        term = pty.spawn(
-          shell,
-          process.platform === "win32" ? ["-NoLogo", "-NoProfile"] : [],
-          {
-            name: "xterm-256color",
-            cols: 100,
-            rows: 24,
-            cwd: config.terminalCwd,
-            env: {
-              ...process.env,
-              TERM: "xterm-256color",
-              PAPERWEAVE_URL: origin,
-            },
-          },
-        );
+        const { shell, args } = terminalShell;
+        term = pty.spawn(shell, args, {
+          name: "xterm-256color",
+          cols: 100,
+          rows: 24,
+          cwd: config.terminalCwd,
+          env: terminalEnvironment(process.env, origin),
+        });
       } catch (e) {
         ws.send(JSON.stringify({ type: "error", message: e.message }));
         ws.close();

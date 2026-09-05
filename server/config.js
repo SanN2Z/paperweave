@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs/promises";
+import { projectDataDir } from "./project.js";
 export const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -9,10 +10,11 @@ export const dataDir = path.resolve(
   process.env.PAPERWEAVE_DATA_DIR || path.join(root, ".paperweave"),
 );
 export async function configuration() {
+  const activeDataDir = (await projectDataDir()) || dataDir;
   let saved = {};
   try {
     saved = JSON.parse(
-      await fs.readFile(path.join(dataDir, "config.json"), "utf8"),
+      await fs.readFile(path.join(activeDataDir, "config.json"), "utf8"),
     );
   } catch (e) {
     if (e.code !== "ENOENT") throw e;
@@ -22,8 +24,9 @@ export async function configuration() {
     throw new Error("Invalid port");
   return {
     port,
-    dataDir,
+    dataDir: activeDataDir,
     root,
+    projectRoot: process.env.PAPERWEAVE_PROJECT || saved.projectRoot,
     agent: process.env.PAPERWEAVE_AGENT || saved.agent || "auto",
     terminalThemeFile:
       process.env.PAPERWEAVE_TERMINAL_THEME_FILE || saved.terminalThemeFile,
@@ -32,10 +35,12 @@ export async function configuration() {
       saved.terminalProfile ||
       process.env.WT_PROFILE_ID,
     terminalAppearance: saved.terminalAppearance || "light",
+    terminalShell: process.env.PAPERWEAVE_SHELL || saved.terminalShell,
+    terminalShellArgs: saved.terminalShellArgs,
     vault: path.resolve(
       process.env.PAPERWEAVE_VAULT ||
         saved.vault ||
-        path.join(dataDir, "vault"),
+        path.join(activeDataDir, "vault"),
     ),
     terminalCwd: path.resolve(
       process.env.PAPERWEAVE_CWD || saved.terminalCwd || root,

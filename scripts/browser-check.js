@@ -13,6 +13,8 @@ const app = await startServer({
   dataDir: dir,
   vault: path.join(dir, "vault"),
   terminalCwd: root,
+  terminalShellArgs:
+    process.platform === "win32" ? ["-NoLogo", "-NoProfile"] : undefined,
   terminalThemeFile: path.join(dir, "missing-theme.json"),
   port: await freePort(),
 });
@@ -75,6 +77,43 @@ try {
   console.log("PASS browser paper creation and live state");
   const seeded = await seedDemo((n, a) => app.store.call(n, a));
   await expect(page.locator(".graph-node")).toHaveCount(6);
+  const node = page.locator(".graph-node").first();
+  const nodeBox = await node.boundingBox();
+  await page.mouse.move(nodeBox.x + 40, nodeBox.y + 30);
+  await page.mouse.down();
+  await page.mouse.move(nodeBox.x + 110, nodeBox.y + 115, { steps: 8 });
+  await page.mouse.up();
+  await expect
+    .poll(() => app.store.snapshot().papers[0].position?.x || 0)
+    .toBeGreaterThan(35);
+  const savedPosition = await node.getAttribute("style");
+  await page.reload();
+  await expect(page.locator(".graph-node").first()).toHaveAttribute(
+    "style",
+    savedPosition,
+  );
+  const source = page.locator(".graph-port").first(),
+    target = page.locator(".graph-node").nth(1);
+  const sourceBox = await source.boundingBox(),
+    targetBox = await target.boundingBox();
+  await page.mouse.move(sourceBox.x + 7, sourceBox.y + 7);
+  await page.mouse.down();
+  await page.mouse.move(targetBox.x + 60, targetBox.y + 50, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("dialog").locator('[name="source"]')).toHaveValue(
+    seeded.papers[0].id,
+  );
+  await expect(page.getByRole("dialog").locator('[name="target"]')).toHaveValue(
+    seeded.papers[1].id,
+  );
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "关闭", exact: true })
+    .click();
+  console.log(
+    "PASS freely dragged card persists and connector drag chooses relation endpoints",
+  );
   await expect(page.locator(".detail-title")).toHaveText(
     "Efficient Adaptation with Lightweight Modules",
   );
@@ -87,7 +126,40 @@ try {
     .getByRole("button", { name: "科研图件", exact: true })
     .first()
     .click();
-  await expect(page.locator(".figure-card")).toHaveCount(2);
+  await expect(page.locator(".template-card")).toHaveCount(11);
+  await page
+    .locator(".template-card")
+    .first()
+    .getByRole("button", { name: "用这个模板绘图" })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByLabel("想怎么改这张图？")
+    .fill("保留矢量组件，将输入标注改为视频");
+  const figureCount = app.store.snapshot().figures.length;
+  const promptStart = terminalInputs.length;
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "用这个模板绘图", exact: true })
+    .click();
+  await expect
+    .poll(() => app.store.snapshot().figures.length)
+    .toBe(figureCount + 1);
+  await expect
+    .poll(() => terminalInputs.slice(promptStart).join(""))
+    .toContain("refresh_figure");
+  await page.locator(".xterm-helper-textarea").press("Control+c");
+  // The fixture uses a Shell: natural language must never be auto-executed there.
+  expect(
+    terminalInputs.slice(promptStart).filter((x) => x === "\r"),
+  ).toHaveLength(0);
+  expect(terminalInputs.slice(promptStart).join("")).not.toMatch(/[\r\n]/);
+  await page.screenshot({
+    path: path.join(root, "artifacts", "templates.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "我的图件", exact: true }).click();
+  await expect(page.locator(".figure-card")).toHaveCount(3);
   await page.screenshot({
     path: path.join(root, "artifacts", "figures.png"),
     fullPage: true,
@@ -115,10 +187,39 @@ try {
     .getByLabel("论文草稿")
     .selectOption({ label: "研究草稿 · 示例.md" });
   await expect(page.locator(".manuscript-editor")).toContainText("研究草稿");
+  const writingWidth = (await page.locator(".manuscript-editor").boundingBox())
+    .width;
+  await page.getByRole("button", { name: "专注写作", exact: true }).click();
+  await expect(page.locator(".terminal-dock")).toBeHidden();
+  expect(
+    (await page.locator(".manuscript-editor").boundingBox()).width,
+  ).toBeGreaterThan(writingWidth);
+  await page.getByRole("button", { name: "退出专注", exact: true }).click();
+  await expect(page.locator(".terminal-dock")).toBeVisible();
   await page.getByRole("button", { name: "预览", exact: true }).click();
   await expect(page.locator(".manuscript-preview")).toContainText(
     "核验参考文献",
   );
+  const visualDraft = page.locator(
+    '.manuscript-preview [contenteditable="true"]',
+  );
+  await visualDraft.click();
+  await visualDraft.press("Control+End");
+  await visualDraft.press("Enter");
+  await visualDraft.pressSequentially("Writing preview edit");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await expect
+    .poll(
+      async () =>
+        (
+          await app.store.call("get_manuscript", {
+            manuscriptId: app.store
+              .snapshot()
+              .manuscripts.find((m) => m.format === "md").id,
+          })
+        ).body,
+    )
+    .toContain("Writing preview edit");
   await expect(page.locator(".toast")).toHaveCount(0);
   await page.screenshot({
     path: path.join(root, "artifacts", "writing.png"),
@@ -146,7 +247,7 @@ try {
       Authorization: `Bearer ${app.token}`,
       "Content-Type": "application/pdf",
     },
-    body: samplePdf(),
+    body: samplePdf(4),
   });
   if (!upload.ok) throw new Error(await upload.text());
   let missingOnce = true;
@@ -175,21 +276,63 @@ try {
   console.log(
     "PASS PDF recovery and browser compatibility without Promise.try / URL.parse",
   );
-  await page.locator(".textLayer").evaluate((el) => {
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    const s = window.getSelection();
-    s.removeAllRanges();
-    s.addRange(range);
-    el.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
-  });
+  await expect(page.locator(".pdf-page")).toHaveCount(4);
+  await page.locator(".pdf-scroll").hover();
+  await page.mouse.wheel(0, 1000);
+  await expect.poll(() => app.store.snapshot().context.page).toBe(2);
+  await expect(page.locator('[data-page-number="2"] .textLayer')).toContainText(
+    "Page 2",
+  );
+  await app.store.call("set_context", { page: 1 });
+  await expect
+    .poll(() => page.locator(".pdf-scroll").evaluate((el) => el.scrollTop))
+    .toBeLessThan(30);
+  await page
+    .locator(".textLayer")
+    .first()
+    .evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(range);
+      el.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    });
   await expect
     .poll(() => app.store.snapshot().context.selection)
     .toContain("source passage");
+  await expect(
+    page.getByRole("toolbar", { name: "原文划选操作" }),
+  ).toBeVisible();
+  await expect(page.locator(".inspector")).toBeHidden();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("toolbar", { name: "原文划选操作" })).toHaveCount(
+    0,
+  );
+  await page
+    .locator(".textLayer")
+    .first()
+    .evaluate((el) =>
+      el.dispatchEvent(new MouseEvent("mouseup", { bubbles: true })),
+    );
+  await page
+    .getByRole("button", { name: "让 Agent 解读", exact: true })
+    .click();
+  await expect
+    .poll(() =>
+      app.store
+        .snapshot()
+        .questions.some((q) => q.question === "请结合论文上下文解读这段原文"),
+    )
+    .toBe(true);
+  await expect(page.locator(".inspector")).toBeHidden();
+  await page.locator(".xterm-helper-textarea").press("Control+c");
+  await page.getByRole("button", { name: "展开笔记", exact: true }).click();
   await page
     .getByLabel("哪里还没想明白？")
     .fill("What does this source passage mean?");
-  await page.getByRole("button", { name: "交给 Agent 的上下文" }).click();
+  await page.getByRole("button", { name: "发送给 Agent" }).click();
+  await page.locator(".xterm-helper-textarea").press("Control+c");
   await expect
     .poll(() =>
       app.store
@@ -204,7 +347,56 @@ try {
     fullPage: true,
   });
   console.log("PASS PDF rendering, text selection and contextual question");
+  const noteForRoundtrip = await app.store.call("get_note", {
+    noteId: app.store.snapshot().notes[0].id,
+  });
+  const researchMarkdown =
+    '\n\n## Roundtrip\n\n[[related-note|Related note]]\n\nInline $x_i + \\alpha$ and [@smith2025].\n\n$$\n\\frac{a}{b}\n$$\n\n- [x] Checked task\n\n| Metric | Value |\n| --- | --- |\n| Accuracy | 0.9 |\n\n```python\nprint("retained")\n```\n';
+  await fs.appendFile(noteForRoundtrip.path, researchMarkdown);
   await page.locator(".note-item").first().click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".note-preview")).toContainText("我的问题");
+  const visual = page.getByRole("textbox", { name: "Markdown 可视化编辑" });
+  await expect(visual).toBeVisible();
+  const originalNote = await app.store.call("get_note", {
+    noteId: app.store.snapshot().notes[0].id,
+  });
+  await visual.click();
+  await visual.press("Control+End");
+  await visual.press("Enter");
+  await visual.pressSequentially("Edited directly in preview");
+  await page
+    .locator(".note-document")
+    .getByRole("button", { name: /保存/ })
+    .click();
+  await expect
+    .poll(
+      async () =>
+        (await app.store.call("get_note", { noteId: originalNote.id })).body,
+    )
+    .toContain("Edited directly in preview");
+  const editedNote = await app.store.call("get_note", {
+    noteId: originalNote.id,
+  });
+  const frontmatter = originalNote.body.match(/^---\r?\n[\s\S]*?\r?\n---/)?.[0];
+  if (frontmatter) expect(editedNote.body.startsWith(frontmatter)).toBe(true);
+  for (const fragment of [
+    "[[related-note|Related note]]",
+    "$x_i + \\alpha$",
+    "\\frac{a}{b}",
+    "[@smith2025]",
+    "Checked task",
+    "Accuracy",
+    'print("retained")',
+  ])
+    expect(editedNote.body).toContain(fragment);
+  await page.screenshot({
+    path: path.join(root, "artifacts", "notes.png"),
+    fullPage: true,
+  });
+  await page
+    .getByRole("button", { name: "Markdown 源码", exact: true })
+    .click();
   await expect(page.locator(".note-editor")).toBeVisible();
   const note = await app.store.call("get_note", {
     noteId: app.store.snapshot().notes[0].id,
@@ -213,12 +405,9 @@ try {
   await expect(page.locator(".note-editor")).toContainText(
     "External Obsidian sync marker",
   );
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "关闭", exact: true })
-    .click();
+  await page.getByRole("button", { name: "返回笔记列表", exact: true }).click();
   console.log("PASS external Obsidian note edits appear in browser");
-  await page.getByRole("button", { name: "收起详情面板" }).click();
+  await expect(page.locator(".inspector")).toBeHidden();
   await page.getByRole("button", { name: "研究笔记", exact: true }).click();
   await expect(page.locator(".research-note-card")).toHaveCount(1);
   await page.getByRole("button", { name: "论文脉络", exact: true }).click();
@@ -338,6 +527,35 @@ try {
       "animation-name",
       "none",
     );
+    await expect(page.locator(".xterm-cursor").first()).toHaveCSS(
+      "background-color",
+      "rgba(0, 0, 0, 0)",
+    );
+    const beforeKeys = terminalInputs.length;
+    await page.locator(".xterm-helper-textarea").press("Control+Shift+d");
+    await expect(page.locator(".terminal-session:not([hidden])")).toHaveCount(
+      2,
+    );
+    await page
+      .locator('.terminal-session[data-session-id="2"] .xterm-helper-textarea')
+      .press("Alt+ArrowUp");
+    await expect(
+      page.locator(
+        '.terminal-session[data-session-id="1"] .xterm-helper-textarea',
+      ),
+    ).toBeFocused();
+    await page.keyboard.press("Alt+ArrowDown");
+    await expect(
+      page.locator(
+        '.terminal-session[data-session-id="2"] .xterm-helper-textarea',
+      ),
+    ).toBeFocused();
+    await page.keyboard.press("Control+Shift+w");
+    await expect(page.locator(".terminal-session")).toHaveCount(1);
+    expect(terminalInputs.slice(beforeKeys).join("")).not.toContain("\x04");
+    console.log(
+      "PASS terminal split/focus/close shortcuts and thin steady cursor",
+    );
     await page.getByRole("button", { name: "终端分屏", exact: true }).click();
     await expect(page.locator(".terminal-session:not([hidden])")).toHaveCount(
       2,
@@ -346,7 +564,7 @@ try {
       "本地 Shell",
     );
     await page
-      .getByRole("button", { name: "结束 Terminal 2", exact: true })
+      .getByRole("button", { name: "结束 Terminal 3", exact: true })
       .click();
     await expect(page.locator(".terminal-session")).toHaveCount(1);
     await expect(page.locator(".xterm-accessibility-tree")).toContainText(
