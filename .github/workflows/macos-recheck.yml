@@ -6,6 +6,11 @@ on:
         description: 'Completed macOS desktop workflow run containing candidate DMGs'
         type: string
         required: true
+      arch:
+        description: 'Native architecture to recheck'
+        type: choice
+        default: both
+        options: [both, arm64, x64]
 permissions:
   contents: read
   actions: read
@@ -14,12 +19,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: macos-15
-            arch: arm64
-          - os: macos-15-intel
-            arch: x64
-    runs-on: ${{ matrix.os }}
+        arch: ${{ inputs.arch == 'both' && fromJSON('["arm64","x64"]') || fromJSON(format('["{0}"]', inputs.arch)) }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'macos-15' || 'macos-15-intel' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4

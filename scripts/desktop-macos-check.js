@@ -40,6 +40,9 @@ else {
   }
   console.log("PASS disk image mounts and application copies to a Unicode installation path");
 }
+// macOS /var is a symlink to /private/var. Launch the actual executable path:
+// Tauri intentionally rejects an original executable path containing symlinks.
+app = await fs.realpath(app);
 const bundle = path.join(app, "Contents/Resources/paperweave");
 const node = path.join(bundle, "runtime/node");
 const executable = path.join(app, "Contents/MacOS/paperweave-desktop");
