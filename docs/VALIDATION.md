@@ -4,6 +4,18 @@ Local environment: Windows, Node.js 24.13, installed Microsoft Edge, local MiKTe
 
 ## Executed checks
 
+### Paper owl, desktop frame and installer 0.2.1 (`9aca521`)
+
+Local `npm test` passed **25 tests**; the production build and full Edge browser workflow passed. The [Windows/macOS/Linux source workflow](https://github.com/SanN2Z/paperweave/actions/runs/33969473254) passed on all three platforms. The additional browser check loads the real generated mascot and verifies the custom title bar at the minimum 1000 × 680 size and a larger viewport, no document overflow, ready handshake and button wiring. Its native bridge is deliberately stubbed; it is not evidence of OS-level window dragging or minimization. The native Windows harness now covers the new buttons, but this version has not been run against the user's installed WebView2 app because that would interrupt an existing session.
+
+The [Windows 0.2.1 build and installer lifecycle check](https://github.com/SanN2Z/paperweave/actions/runs/33969473233) passed. On a pristine disposable Windows runner it installed the exact built package, verified version registration and the start-menu uninstall shortcut, ran the bundled uninstaller, verified the application executable and registration were removed, then reinstalled. A synthetic research Markdown file under the normal app-data directory retained its exact hash throughout. The customized confirmation page contains no research-data deletion checkbox or recursive app-data deletion branch. This is a clean install/uninstall/reinstall check; it does not claim unattended termination of active research services or publisher signing.
+
+The downloaded `Paperweave_0.2.1_x64-setup.exe` is **59,427,491 bytes**, SHA256 **`7c8f67d85592980921b46921f0f3a96e5e565357af1681517692e5a589cde4b9`**. Both GitHub's archive digest and the packaged installer checksum were verified after download. The local delivery is under `artifacts/paper-owl-release/`.
+
+The [macOS 0.2.1 workflow](https://github.com/SanN2Z/paperweave/actions/runs/33969473230) passed on both Apple Silicon and Intel: build, native startup, bundled MCP and WebKit workflow acceptance. The existing distinction between WebKit checks and native WKWebView keyboard/clipboard testing still applies. The original user workspace and running application were not replaced during this delivery.
+
+The first local browser run stopped at an overly strict test expectation for a PowerShell prompt ending in a literal space. ConPTY had delivered the valid prompt ending at `>`. The readiness predicate now accepts either representation; the complete rerun passed. Known node-pty `AttachConsole failed` diagnostics during already-exited fixture cleanup remain separate from successful test assertions and exit status.
+
 ### Terminal image paste (`de8200b`)
 
 Local `npm test` passed **25 tests**; `npm run build` and the full Edge browser workflow passed. Real clipboard PNGs were pasted through Ctrl+V, Ctrl+Shift+V, Shift+Insert and the Paste button. The regression verified private saved image bytes/dimensions, image priority over alternate clipboard text, exactly one PTY insertion without Enter, upload failure and retry, and the existing Chinese/multiline text paths. It restores the prior rich clipboard. HTTP checks cover authentication, invalid formats, the 20 MiB limit, unique files and absence of figure-library side effects. The [three-platform source workflow](https://github.com/SanN2Z/paperweave/actions/runs/33965048045) passed on Windows, macOS and Linux for this exact product commit.

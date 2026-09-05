@@ -1,6 +1,6 @@
 # Installer artwork and research data retention
 
-`installer.nsi` is adapted from the [Tauri CLI 2.11.4 NSIS template](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.11.4/crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi), copyright Tauri Programme within The Commons Conservancy, under MIT / Apache-2.0. The upstream MIT license is included here.
+`installer.nsi` is adapted from the [Tauri CLI 2.11.4 NSIS template](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.11.4/crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi), copyright Tauri Apps Contributors, under MIT / Apache-2.0. The upstream MIT license is included here.
 
 Changes from upstream: replace the uninstall data-deletion checkbox with an English/Chinese explanation that research data is retained, and remove the recursive app-data deletion branch. Keep the remaining upstream install, maintenance, WebView2 and upgrade behavior. When upgrading Tauri CLI, review and rebase this template; do not silently return to the data-deleting default. No vault or research directory belongs to the installer.
 
