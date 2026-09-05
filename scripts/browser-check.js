@@ -173,6 +173,7 @@ try {
   const seeded = await seedDemo((n, a) => app.store.call(n, a));
   await expect(page.locator(".graph-node")).toHaveCount(6);
   const node = page.locator(".graph-node").first();
+  await node.hover();
   const nodeBox = await node.boundingBox();
   await page.mouse.move(nodeBox.x + 40, nodeBox.y + 30);
   await page.mouse.down();
@@ -189,9 +190,10 @@ try {
   );
   const source = page.locator(".graph-port").first(),
     target = page.locator(".graph-node").nth(1);
-  const sourceBox = await source.boundingBox(),
-    targetBox = await target.boundingBox();
-  await page.mouse.move(sourceBox.x + 7, sourceBox.y + 7);
+  // Locator hover waits for the graph's post-reload fit/resize to settle.
+  // Raw coordinates captured during that layout change can miss the port.
+  await source.hover();
+  const targetBox = await target.boundingBox();
   await page.mouse.down();
   await page.mouse.move(targetBox.x + 60, targetBox.y + 50, { steps: 8 });
   await page.mouse.up();
