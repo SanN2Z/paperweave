@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Minus, Square, Copy, X } from "lucide-react";
-import owl from "../assets/brand/paper-owl.png";
+import mascot from "../assets/brand/fan-sprite.png";
 import "./desktop-frame.css";
 
 // The host explicitly enables this only for windows whose OS title bar is removed.
@@ -43,8 +43,8 @@ export default function DesktopFrame({ children }) {
           e.preventDefault();
           action(e.detail === 2 ? "toggle_maximize" : "drag");
         }}>
-          <img src={owl} alt="" draggable="false" width="22" height="22" />
-          <span>Paperweave</span>
+          <img src={mascot} alt="" draggable="false" width="22" height="22" />
+          <span>扇子</span>
           <span className="desktop-titlebar-detail">研究工作台</span>
         </div>
         <div className="desktop-window-buttons">

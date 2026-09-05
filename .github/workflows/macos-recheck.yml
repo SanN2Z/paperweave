@@ -35,7 +35,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BUILD_RUN: ${{ inputs.build_run }}
           BUNDLE_ARCH: ${{ matrix.arch }}
-        run: gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" -n "Paperweave-macos-$BUNDLE_ARCH" -D src-tauri/target/release/bundle/dmg
+        run: gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" -p "*-macos-$BUNDLE_ARCH" -D src-tauri/target/release/bundle/dmg
       - name: Verify installed app
         timeout-minutes: 8
         env:

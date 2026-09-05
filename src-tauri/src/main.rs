@@ -77,7 +77,7 @@ fn launch(app: &tauri::AppHandle, project: Option<String>, override_data: Option
         let allowed_origin = service.origin.clone();
         let external = app.clone();
         let popup = app.clone();
-        let title = service.project.as_ref().and_then(|s| std::path::Path::new(s).file_name()).map(|s| format!("{} — Paperweave", s.to_string_lossy())).unwrap_or("Paperweave".into());
+        let title = service.project.as_ref().and_then(|s| std::path::Path::new(s).file_name()).map(|s| format!("{} — 扇子", s.to_string_lossy())).unwrap_or("扇子".into());
         let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
             .title(title).inner_size(1440.0, 960.0).min_inner_size(1000.0, 680.0)
             // Keep OS controls until the loaded frontend confirms it has replacements.
@@ -147,7 +147,7 @@ fn monitor(app: &tauri::AppHandle, main: &str) -> Result<(), String> {
     if app.get_webview_window(&label).is_none() {
         let origin = service.origin.clone();
         let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(format!("{}/?monitor=1", service.origin).parse().unwrap()))
-            .title("Paperweave · 会话监控").inner_size(370.0, 440.0).min_inner_size(330.0, 110.0)
+            .title("扇子 · 会话监控").inner_size(370.0, 440.0).min_inner_size(330.0, 110.0)
             .initialization_script("window.__PAPERWEAVE_DESKTOP__ = true;")
             .always_on_top(true).skip_taskbar(false).on_navigation(move |url| url.origin().ascii_serialization() == origin)
             .build().map_err(|e| e.to_string())?;
@@ -198,7 +198,7 @@ fn show_workbench(app: tauri::AppHandle, window: WebviewWindow) -> Result<(), St
 fn quit(app: tauri::AppHandle) {
     let target = app.clone();
     app.dialog().message("退出将结束桌面窗口内的终端会话。外部 CLI 和本地 MCP 服务继续运行。只想收起窗口，请取消后点击窗口关闭按钮。")
-        .title("退出 Paperweave？").buttons(MessageDialogButtons::OkCancelCustom("退出".into(), "取消".into()))
+        .title("退出 扇子？").buttons(MessageDialogButtons::OkCancelCustom("退出".into(), "取消".into()))
         .show(move |ok| { if ok { target.exit(0); } });
 }
 #[tauri::command]
@@ -218,7 +218,7 @@ fn main() {
             let monitor_item = MenuItem::with_id(app, "monitor", "会话监控", true, None::<&str>)?;
             let exit = MenuItem::with_id(app, "quit", "退出…", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &project, &monitor_item, &exit])?;
-            TrayIconBuilder::new().icon(app.default_window_icon().unwrap().clone()).tooltip("Paperweave · 研究工作台")
+            TrayIconBuilder::new().icon(app.default_window_icon().unwrap().clone()).tooltip("扇子 · 研究工作台")
                 .menu(&menu).show_menu_on_left_click(cfg!(target_os = "macos"))
                 .on_tray_icon_event(|tray, event| { if matches!(event, TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. }) { show_last(tray.app_handle()); } })
                 .on_menu_event(|app, event| match event.id.as_ref() {
@@ -228,12 +228,12 @@ fn main() {
                     "monitor" => { let app = app.clone(); std::thread::spawn(move || { let label = app.state::<Desktop>().last.lock().unwrap().clone(); if let Err(e) = monitor(&app, &label) { app.dialog().message(e).show(|_| {}); } }); },
                     _ => {}
                 }).build(app)?;
-            let launcher = WebviewWindowBuilder::new(app, "launcher", WebviewUrl::App("index.html".into())).title("Paperweave").inner_size(600.0, 430.0).center().build()?;
+            let launcher = WebviewWindowBuilder::new(app, "launcher", WebviewUrl::App("index.html".into())).title("扇子").inner_size(600.0, 430.0).center().build()?;
             let keeper = launcher.clone();
             launcher.on_window_event(move |event| { if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); let _ = keeper.hide(); } });
             Ok(())
         })
-        .build(tauri::generate_context!()).expect("Paperweave desktop initialization failed")
+        .build(tauri::generate_context!()).expect("扇子 desktop initialization failed")
         .run(|app, event| {
             if let tauri::RunEvent::ExitRequested { code: None, api, .. } = &event { api.prevent_exit(); }
             #[cfg(target_os = "macos")]

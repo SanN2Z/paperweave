@@ -1,9 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Paperweave",
-  "version": "0.2.1",
+  "productName": "扇子",
+  "version": "0.2.2",
   "identifier": "org.paperweave.desktop",
-  "build": { "frontendDist": "../desktop-ui" },
+  "build": {
+    "frontendDist": "../desktop-ui"
+  },
   "app": {
     "windows": [],
     "withGlobalTauri": true,
@@ -13,27 +15,41 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    "resources": { "resources/paperweave/": "paperweave/" },
-    "icon": ["icons/icon.ico", "icons/32x32.png", "icons/128x128.png"],
+    "targets": [
+      "nsis"
+    ],
+    "resources": {
+      "resources/paperweave/": "paperweave/"
+    },
+    "icon": [
+      "icons/icon.ico",
+      "icons/32x32.png",
+      "icons/128x128.png"
+    ],
     "shortDescription": "A local research workbench for your CLI agent",
-    "publisher": "Paperweave contributors",
+    "publisher": "Shanzi contributors",
     "homepage": "https://github.com/SanN2Z/paperweave",
     "licenseFile": "../LICENSE",
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["English", "SimpChinese"],
+        "languages": [
+          "English",
+          "SimpChinese"
+        ],
         "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
         "sidebarImage": "installer/sidebar.bmp",
         "headerImage": "installer/header.bmp",
-        "startMenuFolder": "Paperweave",
+        "startMenuFolder": "扇子",
         "template": "installer/installer.nsi",
         "installerHooks": "installer/hooks.nsh"
       },
-      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true }
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      }
     }
   }
 }

@@ -32,8 +32,10 @@ else {
   await run("/usr/bin/hdiutil", ["attach", "-readonly", "-nobrowse", "-mountpoint", mount, path.join(images, names[0])], { input: "Y\n" });
   try {
     console.log("CHECK copy the application out of the read-only disk image");
-    app = path.join(installation, "安装测试", "Paperweave.app");
-    await run("/usr/bin/ditto", [path.join(mount, "Paperweave.app"), app]);
+    const appNames = (await fs.readdir(mount)).filter(name => name.endsWith(".app"));
+    assert.equal(appNames.length, 1, "Expected one application bundle");
+    app = path.join(installation, "安装测试", appNames[0]);
+    await run("/usr/bin/ditto", [path.join(mount, appNames[0]), app]);
   } finally {
     console.log("CHECK detach the disk image before launching the installed application");
     await run("/usr/bin/hdiutil", ["detach", mount]);

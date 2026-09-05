@@ -60,7 +60,7 @@ import WorkspaceTabs from "./WorkspaceTabs";
 import { useDocumentScroll } from "./useWorkbenchInteraction";
 import Monitor, { DesktopControls } from "./Monitor";
 import DesktopFrame from "./DesktopFrame";
-import owl from "../assets/brand/paper-owl.png";
+import mascot from "../assets/brand/fan-sprite.png";
 const PdfReader = lazy(() => import("./PdfReader"));
 const TerminalDock = lazy(() => import("./TerminalDock"));
 const VisualMarkdown = lazy(() => import("./VisualMarkdown"));
@@ -344,9 +344,9 @@ function App() {
     return (
       <div className="boot">
         <div className="brand-icon">
-          <img src={owl} alt="折纸猫头鹰" />
+          <img src={mascot} alt="小扇子精" />
         </div>
-        <h1>Paperweave</h1>
+        <h1>扇子</h1>
         <p>
           {connection === "offline"
             ? "正在重新连接本地研究工作台…"
@@ -358,8 +358,8 @@ function App() {
   return (
     <div className="app-shell">
       <aside className="rail">
-        <a className="brand-icon" href="/" aria-label="Paperweave">
-          <img src={owl} alt="" draggable="false" />
+        <a className="brand-icon" href="/" aria-label="扇子">
+          <img src={mascot} alt="" draggable="false" />
         </a>
         <div className="rail-items">
           {[
@@ -404,7 +404,7 @@ function App() {
       <div className="app-main">
         <header className="topbar">
           <div className="breadcrumb">
-            <strong>Paperweave</strong>
+            <strong>扇子</strong>
             <span>/</span>
             <select
               aria-label="研究工作区"
@@ -681,7 +681,7 @@ function App() {
                                     quote: selection,
                                     page,
                                   });
-                                  const prompt = `请使用 Paperweave MCP 的 get_context 读取当前论文与划选原文，结合前后文解释这段话，说明关键概念和推导；不确定的地方请明确指出。论文：${paper.title}，第 ${page} 页。`;
+                                  const prompt = `请使用 扇子 MCP 的 get_context 读取当前论文与划选原文，结合前后文解释这段话，说明关键概念和推导；不确定的地方请明确指出。论文：${paper.title}，第 ${page} 页。`;
                                   const result =
                                     terminalDockRef.current?.discuss(prompt);
                                   setToast(
@@ -965,7 +965,7 @@ function App() {
                             .then(() => {
                               f.reset();
                               const result = terminalDockRef.current?.discuss(
-                                `请使用 Paperweave MCP 的 get_context 读取当前划选原文，直接回答我的问题：${question}。必要时用 read_paper 补全原文；不要只复述阅读状态。`,
+                                `请使用 扇子 MCP 的 get_context 读取当前划选原文，直接回答我的问题：${question}。必要时用 read_paper 补全原文；不要只复述阅读状态。`,
                               );
                               setToast(
                                 result === "submitted"
@@ -1463,7 +1463,7 @@ function App() {
                     className="button secondary small"
                     onClick={() =>
                       copy(
-                        `请把 Paperweave MCP 连接到我的当前 CLI，保留已有配置与当前会话。以下为当前研究空间的 stdio MCP 配置：\n${JSON.stringify(sessionData.mcpConfig, null, 2)}\n连接后读取 research-workflow 和 get_context，并继续回答我的问题。`,
+                        `请把 扇子 MCP 连接到我的当前 CLI，保留已有配置与当前会话。以下为当前研究空间的 stdio MCP 配置：\n${JSON.stringify(sessionData.mcpConfig, null, 2)}\n连接后读取 research-workflow 和 get_context，并继续回答我的问题。`,
                       )
                     }
                   >
@@ -1526,14 +1526,14 @@ function App() {
             <div>
               <h3>开始一次连续的研究</h3>
               <div className="prompt-card">
-                使用 Paperweave，先读取 get_context 和
+                使用 扇子，先读取 get_context 和
                 research-workflow。帮我梳理这个领域：逐篇补充摘要、方法、证据和局限，建立可追溯的论文关系。遇到我不懂的概念，讨论后保存笔记。
               </div>
               <button
                 className="text-button"
                 onClick={() =>
                   copy(
-                    "使用 Paperweave，先读取 get_context 和 research-workflow。帮我梳理当前领域：逐篇补充摘要、方法、证据和局限，建立可追溯的论文关系。遇到我不懂的概念，讨论后保存笔记。",
+                    "使用 扇子，先读取 get_context 和 research-workflow。帮我梳理当前领域：逐篇补充摘要、方法、证据和局限，建立可追溯的论文关系。遇到我不懂的概念，讨论后保存笔记。",
                   )
                 }
               >

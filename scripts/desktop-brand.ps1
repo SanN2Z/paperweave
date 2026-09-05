@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 $brandRoot = Split-Path -Parent $PSScriptRoot
 $brandOutput = Join-Path $brandRoot 'src-tauri/installer'
-$brandSource = [System.Drawing.Image]::FromFile((Join-Path $brandRoot 'assets/brand/paper-owl-master.png'))
+$brandSource = [System.Drawing.Image]::FromFile((Join-Path $brandRoot 'assets/brand/fan-sprite-master.png'))
 New-Item -ItemType Directory -Force $brandOutput | Out-Null
 function Write-InstallerBitmap([string]$name, [int]$width, [int]$height, [bool]$sidebar) {
   $bitmap = New-Object System.Drawing.Bitmap($width, $height, ([System.Drawing.Imaging.PixelFormat]::Format24bppRgb))
@@ -19,12 +19,12 @@ function Write-InstallerBitmap([string]$name, [int]$width, [int]$height, [bool]$
     $graphics.Clear([System.Drawing.ColorTranslator]::FromHtml($(if ($sidebar) { '#f5f5f1' } else { '#ffffff' })))
     if ($sidebar) {
       $graphics.DrawImage($brandSource, 24, 55, 116, 116)
-      $graphics.DrawString('Paperweave', $titleFont, $ink, 38, 192)
+      $graphics.DrawString('SHANZI', $titleFont, $ink, 38, 192)
       $graphics.DrawString('A home for your research.', $captionFont, $muted, 29, 219)
       $graphics.DrawString('READ  /  THINK  /  CREATE', $captionFont, $muted, 26, 280)
     } else {
       $graphics.DrawImage($brandSource, 106, 6, 43, 43)
-      $graphics.DrawString('Paperweave', $titleFont, $ink, 14, 18)
+      $graphics.DrawString('SHANZI', $titleFont, $ink, 14, 18)
     }
     $bitmap.Save((Join-Path $brandOutput $name), [System.Drawing.Imaging.ImageFormat]::Bmp)
   } finally {

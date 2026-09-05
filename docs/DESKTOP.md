@@ -1,5 +1,15 @@
 # Desktop installation and operations
 
+## Shanzi 0.2.2: name and upgrade compatibility
+
+The display name is **扇子 (Shanzi)** and the mascot is an original anthropomorphic folding-fan sprite. Keep `org.paperweave.desktop`, the Windows uninstall registry key, executable name, bundled `paperweave/` resources and existing vault/MCP paths stable. A legacy installation is upgraded in its registered directory; do not move it just to match the new display name. New Windows installations use the product name for their default directory. macOS bundles are now `扇子.app` with the same native identifier and app-data directory.
+
+0.2.1 changed the publisher from `paperweave` to `Paperweave contributors`. Upstream NSIS then read the legacy install directory from the *new* publisher's key and passed an empty `_?=` directory to the old uninstaller. This is why clean-install tests passed while the 0.2.0 upgrade could fail. The template now reads and validates `InstallLocation` from the existing Installed Apps entry, strips its historical surrounding quotes, and invokes the old uninstaller with that exact directory and `/UPDATE` to preserve research data. The installation identity no longer depends on the display brand or publisher.
+
+Before maintenance, the bundled PowerShell helper checks only the current user's desktop/runtime executables at exact paths inside the selected installation. Interactive maintenance asks before closing those processes and explains embedded-session loss. Silent/passive maintenance exits **10** if active; identity/check failures exit **20**. It never kills arbitrary `node.exe` processes, external CLIs or a process tree. An agent may explicitly coordinate sessions and run `scripts/desktop-maintenance.ps1 -InstallDir PATH -Mode Stop` after authorization; use `-Mode Check` for read-only diagnosis. No machine-wide execution policy is changed.
+
+Windows CI downloads the checksum-pinned real 0.2.0 installer, removes its publisher-path value to reproduce the mismatch, starts a bundled Node lock fixture and a separate external Node fixture, verifies busy silent upgrades leave both running, releases only the owned fixture, and runs the actual passive uninstall-before-install flow. It then verifies the new display name, unchanged installation/MCP path, research hashes, uninstall and reinstall. This is separate from testing the native buttons on the user's running desktop.
+
 The native targets are Windows x64 and macOS arm64/x64. The Tauri host uses WebView2 on Windows and system WKWebView on macOS, and bundles Node, production dependencies, PTY binaries, local frontend assets and drawing templates. See [VALIDATION.md](VALIDATION.md) for actual executed results; availability of a build target alone is not a completed acceptance test. Linux desktop installers are not yet validated. Browser/source mode remains available.
 
 ## For installation agents

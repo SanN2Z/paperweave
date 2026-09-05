@@ -25,7 +25,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BUILD_RUN: ${{ inputs.build_run }}
-        run: gh run download $env:BUILD_RUN --name Paperweave-windows-x64 --dir artifacts/windows-candidate
+        run: gh run download $env:BUILD_RUN --pattern "*-windows-x64" --dir artifacts/windows-candidate
       - name: Install candidate
         shell: pwsh
         run: |

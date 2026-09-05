@@ -65,9 +65,10 @@ ${StrLoc}
 !define WEBVIEW2BOOTSTRAPPERPATH "{{webview2_bootstrapper_path}}"
 !define WEBVIEW2INSTALLERPATH "{{webview2_installer_path}}"
 !define MINIMUMWEBVIEW2VERSION "{{minimum_webview2_version}}"
-!define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}"
-!define MANUKEY "Software\${MANUFACTURER}"
-!define MANUPRODUCTKEY "${MANUKEY}\${PRODUCTNAME}"
+; Stable installation identity survives display-name and publisher changes.
+!define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Paperweave"
+!define MANUKEY "Software\paperweave"
+!define MANUPRODUCTKEY "${MANUKEY}\Paperweave"
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
 !define ESTIMATEDSIZE "{{estimated_size}}"
 !define STARTMENUFOLDER "{{start_menu_folder}}"
@@ -311,6 +312,10 @@ Function PageReinstallUpdateSelection
 FunctionEnd
 Function PageLeaveReinstall
   ${NSD_GetState} $R2 $R1
+  ; Passive upgrades must exercise the same uninstall-before-install path as the UI.
+  ${If} $PassiveMode = 1
+    StrCpy $R1 1
+  ${EndIf}
 
   ; If migrating from Wix, always uninstall
   ${If} $WixMode = 1
@@ -354,11 +359,25 @@ Function PageLeaveReinstall
       ReadRegStr $R1 HKLM "$R6" "UninstallString"
       ExecWait '$R1' $0
     ${Else}
-      ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
-      ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
-      ${IfThen} $UpdateMode = 1 ${|} StrCpy $R1 "$R1 /UPDATE" ${|} ; append /UPDATE
+      Call RegisteredInstallLocation
+      ${If} $4 == ""
+        BringToFront
+        MessageBox MB_ICONEXCLAMATION "$(shanziMissingInstall)"
+        Abort
+      ${EndIf}
+      ; Check the registered old location even when /D selects a different destination.
+      Push $INSTDIR
+      StrCpy $INSTDIR $4
+      BringToFront
+      Call PrepareInstallation
+      Pop $INSTDIR
+      HideWindow
+      ; Never pass an empty _?= path or infer the old directory from the new publisher.
+      ; /UPDATE also protects research data when invoking a legacy uninstaller.
+      StrCpy $R1 '$\"$4\uninstall.exe$\" /UPDATE'
       ${IfThen} $PassiveMode = 1 ${|} StrCpy $R1 "$R1 /P" ${|} ; append /P
       StrCpy $R1 "$R1 _?=$4" ; append uninstall directory
+      ClearErrors
       ExecWait '$R1' $0
     ${EndIf}
 
@@ -436,8 +455,14 @@ FunctionEnd
 !insertmacro MUI_LANGUAGE "{{this}}"
 {{/each}}
 !insertmacro MUI_RESERVEFILE_LANGDLL
-LangString paperweaveKeepResearch 1033 "Paperweave will be removed from your computer. Your papers, notes, research projects and settings will be kept. You can reopen them after reinstalling.$\r$\n$\r$\nClick Uninstall to continue."
-LangString paperweaveKeepResearch 2052 "即将卸载 Paperweave。论文、笔记、研究项目和设置都会保留，重新安装后可以继续使用。$\r$\n$\r$\n点击“卸载”继续。"
+LangString paperweaveKeepResearch 1033 "Shanzi will be removed from your computer. Your papers, notes, research projects and settings will be kept. You can reopen them after reinstalling.$\r$\n$\r$\nClick Uninstall to continue."
+LangString paperweaveKeepResearch 2052 "即将卸载扇子。论文、笔记、研究项目和设置都会保留，重新安装后可以继续使用。$\r$\n$\r$\n点击“卸载”继续。"
+LangString shanziCloseSessions 1033 "Shanzi is still running, possibly in the tray. Continuing will close this installation and its bundled local services, ending embedded terminal sessions. Save your work first. External terminals and research files will be kept.$\r$\n$\r$\nContinue?"
+LangString shanziCloseSessions 2052 "扇子仍在运行，可能已收进托盘。继续会关闭这一份应用及其自带的本地服务，并结束内置终端会话。请先保存工作。外部终端和研究文件会保留。$\r$\n$\r$\n是否继续？"
+LangString shanziMaintenanceFailed 1033 "Unable to release this installation. Exit the app and its bundled MCP service, then retry. No research files have been removed."
+LangString shanziMaintenanceFailed 2052 "暂时无法释放安装文件。请退出应用及它自带的 MCP 服务后重试。研究文件未被删除。"
+LangString shanziMissingInstall 1033 "The previous installation path could not be verified. Reinstall to its original folder to repair the installation."
+LangString shanziMissingInstall 2052 "无法确认旧版安装路径。请选原安装目录覆盖修复，无需删除研究资料。"
 
 {{#each language_files}}
   !include "{{this}}"
@@ -494,6 +519,8 @@ FunctionEnd
 
 
 Section EarlyChecks
+  ; Silent installs skip page callbacks; still refuse to overwrite a live runtime.
+  Call PrepareInstallation
   ; Abort silent installer if downgrades is disabled
   !if "${ALLOWDOWNGRADES}" == "false"
   ${If} ${Silent}
@@ -611,7 +638,7 @@ Section Install
     !insertmacro NSIS_HOOK_PREINSTALL
   !endif
 
-  !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  Call PrepareInstallation
 
   ; Copy main executable
   File "${MAINBINARYSRCPATH}"
@@ -748,7 +775,7 @@ Section Uninstall
     !insertmacro NSIS_HOOK_PREUNINSTALL
   !endif
 
-  !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  Call un.PrepareInstallation
 
   ; Delete the app directory and its content from disk
   ; Copy main executable
@@ -848,9 +875,44 @@ Section Uninstall
 SectionEnd
 
 Function RestorePreviousInstallLocation
-  ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
+  Call RegisteredInstallLocation
   StrCmp $4 "" +2 0
     StrCpy $INSTDIR $4
+FunctionEnd
+
+Function RegisteredInstallLocation
+  Push $R7
+  ReadRegStr $4 SHCTX "${UNINSTKEY}" "InstallLocation"
+  ; Tauri historically stores this path with surrounding quotes.
+  StrCpy $R7 $4 1
+  ${If} $R7 == '$\"'
+    StrCpy $R7 $4 1 -1
+    ${If} $R7 == '$\"'
+      StrCpy $4 $4 -1 1
+    ${Else}
+      StrCpy $4 ""
+    ${EndIf}
+  ${EndIf}
+  ${If} $4 != ""
+  ${AndIf} ${FileExists} "$4\uninstall.exe"
+    GetFullPathName $4 "$4"
+  ${Else}
+    ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
+    ${IfNot} ${FileExists} "$4\uninstall.exe"
+      StrCpy $4 ""
+    ${EndIf}
+  ${EndIf}
+  Pop $R7
+FunctionEnd
+
+Function PrepareInstallation
+  InitPluginsDir
+  File /oname=$PLUGINSDIR\shanzi-maintenance.ps1 "${SHANZI_MAINTENANCE_SOURCE}"
+  !insertmacro ShanziPrepareRuntime "$PLUGINSDIR\shanzi-maintenance.ps1"
+FunctionEnd
+
+Function un.PrepareInstallation
+  !insertmacro ShanziPrepareRuntime "$INSTDIR\paperweave\scripts\desktop-maintenance.ps1"
 FunctionEnd
 
 Function Skip
