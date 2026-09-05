@@ -8,6 +8,7 @@ import { startServer } from "../server/index.js";
 import { root } from "../server/config.js";
 import { freePort, seedDemo, samplePdf } from "../test/fixtures.js";
 import { checkImageClipboard, backupClipboard, restoreClipboard } from "./clipboard-image-check.js";
+import { checkDesktopFrame } from "./desktop-frame-check.js";
 
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), ".paperweave-browser-"));
 const app = await startServer({
@@ -57,7 +58,7 @@ async function cancelShellLine() {
   // the actual prompt before pasting/typing the next fixture, not a fixed sleep.
   await expect.poll(() => stripVTControlCharacters(terminalOutputs.slice(start).join("")), {
     timeout: 10000,
-  }).toMatch(process.platform === "win32" ? /PS [^\r\n]*> / : /[\r\n]/);
+  }).toMatch(process.platform === "win32" ? /PS [^\r\n]*>(?: |$)/ : /[\r\n]/);
 }
 // Exercise the compatibility build without newer JavaScript convenience APIs.
 await page.addInitScript(() => {
@@ -67,6 +68,7 @@ await page.addInitScript(() => {
 page.on("pageerror", (e) => errors.push(e.message));
 await fs.mkdir(path.join(root, "artifacts"), { recursive: true });
 try {
+  await checkDesktopFrame(browser, app.origin, path.join(root, "artifacts/desktop-frame-preview.png"));
   await page.goto(app.origin);
   await expect(page.getByText("从一个问题开始，")).toBeVisible();
   await expect(page.locator(".terminal-dock")).toHaveClass(/is-open/);

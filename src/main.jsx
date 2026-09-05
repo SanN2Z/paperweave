@@ -59,6 +59,8 @@ import "./workbench.css";
 import WorkspaceTabs from "./WorkspaceTabs";
 import { useDocumentScroll } from "./useWorkbenchInteraction";
 import Monitor, { DesktopControls } from "./Monitor";
+import DesktopFrame from "./DesktopFrame";
+import owl from "../assets/brand/paper-owl.png";
 const PdfReader = lazy(() => import("./PdfReader"));
 const TerminalDock = lazy(() => import("./TerminalDock"));
 const VisualMarkdown = lazy(() => import("./VisualMarkdown"));
@@ -342,7 +344,7 @@ function App() {
     return (
       <div className="boot">
         <div className="brand-icon">
-          <Layers />
+          <img src={owl} alt="折纸猫头鹰" />
         </div>
         <h1>Paperweave</h1>
         <p>
@@ -357,7 +359,7 @@ function App() {
     <div className="app-shell">
       <aside className="rail">
         <a className="brand-icon" href="/" aria-label="Paperweave">
-          <Layers size={24} />
+          <img src={owl} alt="" draggable="false" />
         </a>
         <div className="rail-items">
           {[
@@ -2983,6 +2985,6 @@ createRoot(document.getElementById("root")).render(
   new URLSearchParams(location.search).has("monitor") ? (
     <Monitor standalone />
   ) : (
-    <App />
+    <DesktopFrame><App /></DesktopFrame>
   ),
 );

@@ -1,4 +1,4 @@
 [[permission]]
 identifier = "desktop-actions"
 description = "Only the workbench's explicit window and project-picker actions. No arbitrary shell or filesystem access."
-commands.allow = ["launch_default", "open_project", "open_monitor", "pin_monitor", "collapse_monitor", "hide_window", "show_workbench", "quit_app"]
+commands.allow = ["launch_default", "open_project", "open_monitor", "pin_monitor", "collapse_monitor", "hide_window", "window_action", "show_workbench", "quit_app"]

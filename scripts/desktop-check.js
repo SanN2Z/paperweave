@@ -96,6 +96,16 @@ try {
     )
     .toBe(true);
   await expect(page.locator(".topbar")).toBeVisible();
+  if (await page.evaluate(() => !!window.__PAPERWEAVE_CUSTOM_CHROME__)) {
+    await expect(page.locator(".desktop-titlebar")).toBeVisible();
+    await page.getByRole("button", { name: "最大化窗口", exact: true }).click();
+    await expect.poll(() => page.evaluate(() => window.__TAURI__.core.invoke("window_action", { action: "state" }))).toBe(true);
+    await page.getByRole("button", { name: "还原窗口", exact: true }).click();
+    await expect.poll(() => page.evaluate(() => window.__TAURI__.core.invoke("window_action", { action: "state" }))).toBe(false);
+    await page.getByRole("button", { name: "最小化窗口", exact: true }).click();
+    await page.evaluate(() => window.__TAURI__.core.invoke("show_workbench"));
+    console.log("PASS native custom title bar maximize, restore and minimize/restore");
+  }
   runtime = JSON.parse(
     await fs.readFile(path.join(dataDir, "runtime.json"), "utf8"),
   );
@@ -148,7 +158,7 @@ try {
   const cancelLine = async () => {
     const first = output.length;
     await term.press("Control+c");
-    await expect.poll(() => stripVTControlCharacters(output.slice(first).join("")), { timeout: 10000 }).toMatch(/PS [^\r\n]*> /);
+    await expect.poll(() => stripVTControlCharacters(output.slice(first).join("")), { timeout: 10000 }).toMatch(/PS [^\r\n]*>(?: |$)/);
   };
   try {
     await page.evaluate(() =>
@@ -192,7 +202,9 @@ try {
     window.__nativeContinuity = crypto.randomUUID();
     return window.__nativeContinuity;
   });
-  await page.evaluate(() => window.__TAURI__.core.invoke("hide_window"));
+  if (await page.evaluate(() => !!window.__PAPERWEAVE_CUSTOM_CHROME__))
+    await page.getByRole("button", { name: "收起窗口到托盘" }).click();
+  else await page.evaluate(() => window.__TAURI__.core.invoke("hide_window"));
   await monitor.getByRole("button", { name: "工作台", exact: true }).click();
   expect(await page.evaluate(() => window.__nativeContinuity)).toBe(
     documentIdentity,

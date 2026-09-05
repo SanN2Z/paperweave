@@ -80,7 +80,10 @@ fn launch(app: &tauri::AppHandle, project: Option<String>, override_data: Option
         let title = service.project.as_ref().and_then(|s| std::path::Path::new(s).file_name()).map(|s| format!("{} — Paperweave", s.to_string_lossy())).unwrap_or("Paperweave".into());
         let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
             .title(title).inner_size(1440.0, 960.0).min_inner_size(1000.0, 680.0)
-            .initialization_script("window.__PAPERWEAVE_DESKTOP__ = true;")
+            .decorations(!cfg!(windows)).shadow(true)
+            .initialization_script(if cfg!(windows) {
+                "window.__PAPERWEAVE_DESKTOP__ = true; window.__PAPERWEAVE_CUSTOM_CHROME__ = true;"
+            } else { "window.__PAPERWEAVE_DESKTOP__ = true;" })
             .disable_drag_drop_handler().enable_clipboard_access().center()
             .on_navigation(move |url| {
                 if url.origin().ascii_serialization() == allowed_origin { return true; }
@@ -165,6 +168,25 @@ fn collapse_monitor(window: WebviewWindow, collapsed: bool) -> Result<(), String
 }
 #[tauri::command]
 fn hide_window(window: WebviewWindow) -> Result<(), String> { window.hide().map_err(|e| e.to_string()) }
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum WindowAction { State, Drag, Minimize, ToggleMaximize, Hide }
+#[tauri::command]
+fn window_action(window: WebviewWindow, action: WindowAction) -> Result<bool, String> {
+    // Always address the calling workbench, never a caller-supplied window label.
+    if !window.label().starts_with("workbench-") { return Err("Workbench window required".into()); }
+    match action {
+        WindowAction::State => {},
+        WindowAction::Drag => window.start_dragging().map_err(|e| e.to_string())?,
+        WindowAction::Minimize => window.minimize().map_err(|e| e.to_string())?,
+        WindowAction::ToggleMaximize => {
+            if window.is_maximized().map_err(|e| e.to_string())? { window.unmaximize() }
+            else { window.maximize() }.map_err(|e| e.to_string())?;
+        },
+        WindowAction::Hide => window.hide().map_err(|e| e.to_string())?,
+    }
+    window.is_maximized().map_err(|e| e.to_string())
+}
 #[tauri::command]
 fn show_workbench(app: tauri::AppHandle, window: WebviewWindow) -> Result<(), String> { let (main, _) = service_for(&app, window.label())?; show(&app, &main); Ok(()) }
 fn quit(app: tauri::AppHandle) {
@@ -183,7 +205,7 @@ fn main() {
         }))
         .plugin(tauri_plugin_dialog::init()).plugin(tauri_plugin_opener::init())
         .manage(Desktop::default())
-        .invoke_handler(tauri::generate_handler![launch_default, open_project, open_monitor, pin_monitor, collapse_monitor, hide_window, show_workbench, quit_app])
+        .invoke_handler(tauri::generate_handler![launch_default, open_project, open_monitor, pin_monitor, collapse_monitor, hide_window, window_action, show_workbench, quit_app])
         .setup(|app| {
             let open = MenuItem::with_id(app, "open", "打开工作台", true, None::<&str>)?;
             let project = MenuItem::with_id(app, "project", "打开研究目录…", true, None::<&str>)?;

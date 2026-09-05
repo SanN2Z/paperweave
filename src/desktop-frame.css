@@ -1,0 +1,58 @@
+/* A quiet native frame: one hairline, opaque surfaces and the OS window shadow. */
+.desktop-frame {
+  height: 100dvh;
+  overflow: hidden;
+  background: #f7f7f5;
+  box-shadow: inset 0 0 0 1px #dcdedc;
+  font-family: var(--ui-font);
+}
+.desktop-frame.is-focused { box-shadow: inset 0 0 0 1px #c6c9c8; }
+.desktop-titlebar {
+  height: 36px;
+  display: flex;
+  align-items: stretch;
+  padding-left: 14px;
+  color: #747875;
+  background: linear-gradient(180deg, #fcfcfa, #f4f5f2);
+  border-bottom: 1px solid #e3e5e1;
+  user-select: none;
+}
+.is-focused .desktop-titlebar { color: #323733; }
+.desktop-drag-area {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .1px;
+}
+.desktop-drag-area img { object-fit: contain; pointer-events: none; }
+.desktop-titlebar-detail { color: #939792; font-size: 11px; font-weight: 400; margin-left: 3px; }
+.desktop-window-buttons { display: flex; align-items: stretch; }
+.desktop-window-buttons button {
+  width: 46px;
+  padding: 0;
+  border-radius: 0;
+  transition: background 100ms ease, color 100ms ease;
+}
+.desktop-window-buttons svg { width: 13px; height: 13px; stroke-width: 1.25; }
+.desktop-window-buttons button:hover { background: #e8eae6; color: #232823; }
+.desktop-window-buttons .desktop-close:hover { background: #c84444; color: white; }
+.desktop-window-buttons button:focus-visible { outline-offset: -4px; }
+.desktop-frame > .app-shell, .desktop-frame > .boot { height: calc(100dvh - 36px); min-height: 0; }
+.desktop-frame > .app-shell { margin: 0 1px 1px; height: calc(100dvh - 37px); }
+.desktop-frame.is-maximized > .app-shell { margin: 0; height: calc(100dvh - 36px); }
+.desktop-frame .app-shell .rail { background: #f7f7f5; border-right-color: #e4e6e2; }
+.desktop-frame .app-shell .topbar { box-shadow: 0 1px 0 #ffffff inset; }
+.desktop-frame .research-column { box-shadow: 1px 0 0 #20242b08; }
+.desktop-window-error {
+  position: fixed; top: 44px; right: 12px; z-index: 1000;
+  display: flex; align-items: center; gap: 12px; padding: 8px 12px;
+  background: #fff8f5; border: 1px solid #ead4c9; border-radius: 8px;
+  color: #834330; font-size: 12px; box-shadow: var(--shadow-float);
+}
+.app-shell .brand-icon img { width: 33px; height: 33px; object-fit: contain; }
+.boot .brand-icon img { width: 64px; height: 64px; object-fit: contain; }
+@media (prefers-reduced-motion: reduce) { .desktop-window-buttons button { transition: none; } }

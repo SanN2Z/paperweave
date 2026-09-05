@@ -26,6 +26,9 @@ jobs:
       - run: npm run desktop:stage
       - run: node scripts/desktop-licenses.js
       - run: npm run desktop:build
+      - name: Verify install, uninstall and research data retention
+        shell: pwsh
+        run: ./scripts/desktop-installer-check.ps1
       - name: Hash installer
         shell: pwsh
         run: |

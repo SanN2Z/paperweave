@@ -13,6 +13,10 @@ The native targets are Windows x64 and macOS arm64/x64. The Tauri host uses WebV
 
 The default native workspace is under the operating-system application-data directory, outside installed program files. Selected projects retain `.paperweave/` runtime state and `paperweave/vault/` research content. Upgrades must preserve both. Do not move or delete a user's vault when uninstalling the application.
 
+Starting with 0.2.1, the Windows installer includes the paper-owl mascot, branded welcome pages, a start-menu **Uninstall Paperweave** shortcut and the normal **Settings → Apps → Installed apps → Paperweave → Uninstall** entry. Uninstallation explicitly retains research data and settings; the generic NSIS delete-app-data checkbox has been removed. The installer follows the system language (Chinese/English). `scripts/desktop-installer-check.ps1` checks install → uninstall → reinstall and exact data retention only on disposable Windows CI runners, never on a researcher's machine.
+
+Windows workbenches use an integrated title bar with native dragging, double-click maximize, minimize, restore and hide-to-tray controls. Windows supplies the resize border and shadow (rounded corners on Windows 11). Closing still keeps embedded sessions alive. macOS retains native window controls. The mascot is shared by the app, installer, uninstaller, taskbar/tray, launcher and browser favicon.
+
 ## Window and process lifetime
 
 On macOS, use the menu bar icon to reopen the workbench, choose a project or open the monitor. Reopening from the Dock restores the existing workbench. Native binaries and Node are built on a runner matching the package architecture; there is no Universal bundle. The declared minimum version is macOS 13.5, matching the bundled Node 24 requirement, but the CI machines currently run macOS 15.

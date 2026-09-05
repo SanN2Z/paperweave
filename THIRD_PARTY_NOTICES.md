@@ -1,5 +1,7 @@
 # Third-party notices
 
+The Windows installer template is adapted from Tauri CLI 2.11.4 (`crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi`), copyright Tauri Apps Contributors, under the MIT license. The adaptation removes app-data deletion during uninstall. Source and license are in `src-tauri/installer/`; packaged license text is also retained in `paperweave/third-party/tauri-installer-LICENSE-MIT`.
+
 Paperweave includes a JavaScript adaptation of the ARIS-Monitor scanner:
 
 - Upstream: https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep
