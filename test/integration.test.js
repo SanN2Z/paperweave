@@ -64,6 +64,27 @@ test("daily launcher reuses the matching running workspace without exposing its 
     before,
   );
 });
+
+test("desktop bootstrap reuses the exact service from another cwd and supplies a token-free MCP connection", async () => {
+  const before = await fs.readFile(path.join(dir, "runtime.json"), "utf8");
+  const { stdout } = await promisify(execFile)(
+    process.execPath,
+    [path.join(root, "scripts/desktop-service.js"), "--data-dir", dir],
+    { cwd: os.tmpdir(), windowsHide: true, timeout: 15000 },
+  );
+  const result = JSON.parse(stdout);
+  assert.equal(result.origin, app.origin);
+  assert.equal(result.dataDir, dir);
+  assert.ok(!stdout.includes(app.token));
+  assert.equal(
+    await fs.readFile(path.join(dir, "runtime.json"), "utf8"),
+    before,
+  );
+  const info = await fetch(`${app.origin}/api/session`).then((r) => r.json());
+  assert.equal(info.mcpConfig.command, process.execPath);
+  assert.equal(info.mcpConfig.env.PAPERWEAVE_DATA_DIR, dir);
+  assert.ok(!JSON.stringify(info.mcpConfig).includes(app.token));
+});
 test("local HTTP requires authentication and rejects foreign origins / DNS rebinding", async () => {
   assert.equal((await fetch(`${app.origin}/api/state`)).status, 401);
   assert.equal(

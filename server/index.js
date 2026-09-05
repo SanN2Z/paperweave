@@ -71,6 +71,11 @@ export async function startServer(config, { dev = false } = {}) {
       terminalTheme: theme,
       preferredAgent,
       agentCommand: agentCommand(preferredAgent),
+      mcpConfig: {
+        command: process.execPath,
+        args: [path.join(config.root, "server", "mcp.js")],
+        env: { PAPERWEAVE_DATA_DIR: config.dataDir },
+      },
     });
   });
   app.use("/api", (req, res, next) => {

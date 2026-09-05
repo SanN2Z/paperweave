@@ -2,6 +2,8 @@
 
 This is the repeatable contract for every field review, close reading, figure, result analysis and writing session. Use your existing Codex / Claude Code capabilities to search, read, reason and run experiments; Paperweave supplies shared context and durable artifacts.
 
+For session triage, `get_monitor({currentProject?: boolean})` returns the additive `paperweave-monitor/1` observation contract. Report missing, partial, stale and unsupported evidence explicitly. Only registry `waiting` is an approval signal; transcript activity is an estimate. Codex live status is currently unsupported. Monitoring never approves a prompt or writes to a CLI session. Use this tool when asked about session status, not as a substitute for answering a research question.
+
 ## 1. Establish the workspace
 
 **Answer the person's question, not the dashboard inventory.** `get_context` is silent grounding, not a deliverable. “讲一下”, “这里什么意思” or clicking “让 Agent 解读” means: explain the selected source now. Read the relevant page with `read_paper` if necessary, then give the explanation in the same turn. Start with what the passage means, develop its mechanism/assumptions, and connect it to the paper. Do not end after a tool call. Do not list workspace name, paper counts, note counts, current page or unrelated open questions unless the person explicitly requested status. If source text is missing, state the concrete missing source and retrieve it; do not claim context retrieval completed the reading task.

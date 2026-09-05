@@ -1451,20 +1451,48 @@ function App() {
             <span>01</span>
             <div>
               <h3>让 CLI Agent 看到这里</h3>
-              <p>
-                在项目目录运行以下命令，获取本机准确的 MCP 注册命令，然后重启
-                CLI 会话。
-              </p>
-              <div className="copy-code">
-                <code>npm run setup</code>
-                <button
-                  aria-label="复制安装命令"
-                  onClick={() => copy("npm run setup")}
-                >
-                  <Copy size={15} />
-                </button>
-              </div>
-              <p>已支持 Codex、Claude Code 及标准 stdio MCP 客户端。</p>
+              {sessionData?.mcpConfig ? (
+                <>
+                  <p>
+                    复制连接信息发给你正在使用的
+                    Agent，让它接入当前研究空间。原来的对话可以继续保留。
+                  </p>
+                  <button
+                    className="button secondary small"
+                    onClick={() =>
+                      copy(
+                        `请把 Paperweave MCP 连接到我的当前 CLI，保留已有配置与当前会话。以下为当前研究空间的 stdio MCP 配置：\n${JSON.stringify(sessionData.mcpConfig, null, 2)}\n连接后读取 research-workflow 和 get_context，并继续回答我的问题。`,
+                      )
+                    }
+                  >
+                    <Copy size={14} />
+                    复制给 Agent
+                  </button>
+                  <details>
+                    <summary>查看 MCP 连接配置</summary>
+                    <pre className="code-input">
+                      {JSON.stringify(sessionData.mcpConfig, null, 2)}
+                    </pre>
+                  </details>
+                </>
+              ) : (
+                <>
+                  <p>
+                    在项目目录运行以下命令，获取本机准确的 MCP
+                    注册命令，然后重启 CLI 会话。
+                  </p>
+                  <div className="copy-code">
+                    <code>npm run setup</code>
+                    <button
+                      aria-label="复制安装命令"
+                      onClick={() => copy("npm run setup")}
+                    >
+                      <Copy size={15} />
+                    </button>
+                  </div>
+                  <p>已支持 Codex、Claude Code 及标准 stdio MCP 客户端。</p>
+                </>
+              )}
             </div>
           </div>
           <div className="setup-step">

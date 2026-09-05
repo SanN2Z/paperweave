@@ -16,6 +16,7 @@ const app = await startServer({
   terminalShellArgs:
     process.platform === "win32" ? ["-NoLogo", "-NoProfile"] : undefined,
   terminalThemeFile: path.join(dir, "missing-theme.json"),
+  monitorClaudeHome: path.join(dir, "monitor-fixture"),
   port: await freePort(),
 });
 const chrome =
@@ -56,6 +57,39 @@ try {
   await expect(page.locator(".workspace-heading,.metrics")).toHaveCount(0);
   await expect(page.locator(".library")).toBeHidden();
   await expect(page.locator(".inspector")).toBeHidden();
+  await page.getByRole("button", { name: "会话监控", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText(
+    "未检测到 Claude 会话状态源",
+  );
+  const monitorDir = path.join(dir, "monitor-fixture", "sessions");
+  await fs.mkdir(monitorDir, { recursive: true });
+  await fs.writeFile(
+    path.join(monitorDir, "123.json"),
+    JSON.stringify({
+      status: "waiting",
+      name: "Synthetic monitor session",
+      updatedAt: Date.now(),
+      waitingFor: "Fixture permission prompt",
+    }),
+  );
+  await expect(page.locator(".monitor-session")).toContainText("等待你处理");
+  await expect(page.locator(".session-monitor")).toContainText(
+    "Codex 实时状态暂未接入",
+  );
+  await fs.writeFile(
+    path.join(monitorDir, "123.json"),
+    JSON.stringify({
+      status: "busy",
+      name: "Synthetic monitor session",
+      updatedAt: Date.now(),
+    }),
+  );
+  await expect(page.locator(".monitor-session")).toContainText("工作中");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  console.log(
+    "PASS monitor source availability, live waiting / working transition and dismissal",
+  );
   const tabLauncher = page.getByRole("button", { name: "新建研究标签页" });
   await tabLauncher.click();
   await expect(page.locator(".workspace-tab-menu")).toBeVisible();

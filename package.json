@@ -23,6 +23,7 @@
     "desktop:dev": "tauri dev"
   },
   "dependencies": {
+    "@floating-ui/dom": "1.8.0",
     "@modelcontextprotocol/sdk": "1.30.0",
     "@tiptap/core": "3.31.3",
     "@tiptap/extension-image": "3.31.3",
