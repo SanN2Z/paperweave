@@ -8,6 +8,7 @@ import chokidar from "chokidar";
 import { configuration } from "./config.js";
 import { Store } from "./store.js";
 import { extractPdf } from "./pdf.js";
+import "../scripts/prepare-pty.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 const executeFile = promisify(execFile);
@@ -319,6 +320,7 @@ export async function startServer(config, { dev = false } = {}) {
         return;
       }
       terminals.add(term);
+      ws.send(JSON.stringify({ type: "ready" }));
       const onData = term.onData((data) => {
         if (ws.readyState === WebSocket.OPEN)
           ws.send(JSON.stringify({ type: "data", data }));

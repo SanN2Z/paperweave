@@ -51,6 +51,8 @@ Follow Homebrew's printed PATH instructions for `node@24`, rather than force-lin
 
 If node-pty must compile, use the macOS Command Line Tools (`xcode-select --install`) and Python 3, then `npm rebuild node-pty`. This may invoke a system dialog; report it precisely if the agent cannot interact with it.
 
+Paperweave repairs the missing execute bit on node-pty 1.1.0's known macOS `spawn-helper` files during postinstall and startup. This addresses the [upstream macOS packaging issue](https://github.com/microsoft/node-pty/issues/850). If the installation is read-only, copy it into a user-writable application directory or let the agent run `node scripts/prepare-pty.js` with the appropriate installation permissions. This changes only the installed helper files' execute bits.
+
 For PDF compilation, use an existing TeX distribution or install BasicTeX via the user's package manager / [MacTeX](https://tug.org/mactex/morepackages.html). Ensure `/Library/TeX/texbin` is on PATH and verify `pdflatex --version`. Add missing packages with the distribution's package manager.
 
 ## Linux

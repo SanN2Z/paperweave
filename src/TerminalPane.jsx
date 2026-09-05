@@ -37,12 +37,12 @@ export default function TerminalPane() {
         );
     };
     ws.onopen = () => {
-      setStatus("本地 Shell");
       resize();
       term.focus();
     };
     ws.onmessage = (e) => {
       const m = JSON.parse(e.data);
+      if (m.type === "ready") setStatus("本地 Shell");
       if (m.type === "data") term.write(m.data);
       if (m.type === "error") term.writeln(`\r\n${m.message}`);
     };

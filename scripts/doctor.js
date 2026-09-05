@@ -3,6 +3,7 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { configuration } from "../server/config.js";
+import "./prepare-pty.js";
 const exec = promisify(execFile),
   config = await configuration();
 async function locate(command) {
@@ -12,9 +13,14 @@ async function locate(command) {
       [command],
       { timeout: 5000, windowsHide: true },
     );
-    return stdout.trim().split(/\r?\n/)[0];
-  } catch {
-    return null;
+    return { path: stdout.trim().split(/\r?\n/)[0] };
+  } catch (e) {
+    return {
+      path: null,
+      reason: ["EPERM", "EACCES"].includes(e.code)
+        ? "execution-restricted"
+        : "not-found",
+    };
   }
 }
 async function checkFile(file) {
@@ -45,14 +51,17 @@ for (const [id, command, required] of [
   checks.push({
     id,
     required,
-    ok: !!found,
-    path: found,
+    ok: !!found.path,
+    path: found.path,
+    reason: found.reason,
     fix:
-      id === "latex"
-        ? "Install a TeX distribution only when PDF compilation is needed; see docs/DEPENDENCIES.md."
-        : id === "codex" || id === "claude"
-          ? "Reuse an installed MCP-capable agent; only one client is needed."
-          : "Install Git to clone or update the repository.",
+      found.reason === "execution-restricted"
+        ? "Detection was blocked by the execution sandbox. Retry with authorized subprocess access; do not install a duplicate."
+        : id === "latex"
+          ? "Install a TeX distribution only when PDF compilation is needed; see docs/DEPENDENCIES.md."
+          : id === "codex" || id === "claude"
+            ? "Reuse an installed MCP-capable agent; only one client is needed."
+            : "Install Git to clone or update the repository.",
   });
 }
 let ptyError = "";
