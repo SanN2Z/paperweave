@@ -1,8 +1,22 @@
-# Validation record · 2026-09-05
+# Validation record · 2026-09-06
 
 Local environment: Windows, Node.js 24.13, installed Microsoft Edge, local MiKTeX / pdflatex. Screenshots contain clearly labelled fictional papers and synthetic data, not a completed literature review.
 
 ## Executed checks
+
+### 扇子 0.2.2: fan mascot and legacy upgrade (`aba1fa4`)
+
+The product is now named 扇子 (Shanzi), with the generated anthropomorphic folding-fan mascot in the application, launch window, ICO/ICNS and installer artwork. The application identifier, MCP compatibility identifiers and existing research directory conventions remain stable.
+
+Local `npm test` passed **25 tests**, `npm run build` passed, and the full Edge browser workflow passed, including image/text clipboard, PDF selection, visual Markdown, persisted card positions and dragged relation endpoints. The [Windows/macOS/Linux source workflow](https://github.com/SanN2Z/paperweave/actions/runs/33997108607) passed on all three platforms. A macOS connector fixture previously missed its small source port during post-reload resizing; the drag now uses locator actionability at both endpoints rather than coordinates recorded between independent actions. Endpoint assertions remain unchanged.
+
+The [Windows build and upgrade acceptance](https://github.com/SanN2Z/paperweave/actions/runs/33997108597) passed against the actual checksum-pinned **0.2.0 installer**, not just a clean installation of the latest version. The runner removed the old publisher directory value to reproduce the failed path lookup. A busy bundled Node fixture caused the new silent installer to exit 10 without changing the old uninstaller or ending either process fixture. Explicit maintenance then stopped only the installation-owned process, leaving an external Node fixture alive. The new `/P` installer successfully invoked the legacy uninstaller, retained the existing program directory and registered 扇子 0.2.2. Its bundled uninstaller and start-menu uninstall shortcut worked, and reinstall passed. A synthetic vault Markdown file retained its exact hash through upgrade, uninstall and reinstall.
+
+The earlier [0.2.2 candidate](https://github.com/SanN2Z/paperweave/actions/runs/33971654948) timed out during passive upgrade and was not delivered. The final template skips the uncreated passive custom page and runs the verified child uninstaller with `/UPDATE /S`, avoiding legacy confirmation windows after the parent obtains the maintenance choice. Old installation lookup now reads the canonical Installed Apps location and validates a nonempty directory. This addresses the publisher-key mismatch missed by 0.2.1's clean-install lifecycle test. The user's running local application and private research workspace were not replaced during these checks.
+
+The delivered `扇子_0.2.2_x64-setup.exe` is **58,513,490 bytes**, SHA256 **`c2ff597b1c41d96eb77d8d01c5cd9027b8065c82da8fcac05106622d6494089c`**. GitHub's archive digest and the packaged installer checksum both matched after download. The local file is under `artifacts/shanzi-release/`; this delivery does not install over the user's active application.
+
+The [0.2.2 macOS branding build at `20c0acd`](https://github.com/SanN2Z/paperweave/actions/runs/33971654944) passed Apple Silicon and Intel native startup, bundled MCP and WebKit acceptance. The subsequent [build at `aba1fa4`](https://github.com/SanN2Z/paperweave/actions/runs/33997108592) has passed Apple Silicon; Intel is still building at this Windows handoff. The intervening product change is Windows NSIS-only. These results retain the native WKWebView keyboard/clipboard and signing limits described below.
 
 ### Paper owl, desktop frame and installer 0.2.1 (`9aca521`)
 
