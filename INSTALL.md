@@ -4,6 +4,8 @@ Install Paperweave as a local workbench. The user owns the machine, CLI settings
 
 **Missing dependencies are part of the installation task.** Read [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md), detect the actual OS and repair missing prerequisites instead of handing the user an unexplained dependency list. After Node is available, `node scripts/doctor.js --json` provides machine-readable diagnostics. Respect the host agent's existing permissions; only stop for a genuinely required OS interaction or authorization.
 
+For full installation-to-research responsibilities and concise human handoffs, read [docs/AGENT_GUIDE.md](docs/AGENT_GUIDE.md). The user's brief guide is [docs/USER_GUIDE.md](docs/USER_GUIDE.md); do not make them read the technical playbook to get started.
+
 1. Inspect the OS, Node and Git. Require Node >=22.13 (recommend 24 LTS). Clone this repository into a new directory; never replace unrelated existing files.
 2. Run `npm ci` and `npm run build`. Build the application before starting the production server. If node-pty is unavailable, report the missing terminal support; the MCP and reading features still work with an external CLI.
 3. Run `npm run setup`. If the user provided an Obsidian vault or experiment directory, use `npm run setup -- --vault "ABSOLUTE_VAULT_PATH" --cwd "ABSOLUTE_EXPERIMENT_PATH"`. Otherwise use the default local vault. Existing note files must be preserved. Changing vault paths requires migrating the managed `Paperweave/` folder first.

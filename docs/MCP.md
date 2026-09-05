@@ -20,6 +20,8 @@ Replace example metadata with real verified data. Save the returned UUID. Use it
 
 Returns `context` (selected paper/page/passage/question/view), the active workspace and its papers, relations, notes, questions, figures, manuscripts and activity. Paper rows contain `pageCount`, not full PDF text; use `read_paper` for text. `get_note` and `get_manuscript` return the actual current source file and a SHA-256 `revision`.
 
+For writing, `context.manuscriptId` and `context.manuscriptSelection` identify the chosen draft and selected source text. Use `get_manuscript` for its full latest body before editing. For an agent-downloaded PDF, call `attach_pdf` with `{paperId, path}` using an absolute local path; the source file is preserved.
+
 ```json
 {"name":"save_note","arguments":{"title":"Why this objective works","kind":"concept","body":"## Question\n...\n\n## Understanding\n...\n\n## Still uncertain\n...","paperIds":["RETURNED_PAPER_UUID"],"page":4,"quote":"Actual source passage","questionId":"OPEN_QUESTION_UUID"}}
 ```
