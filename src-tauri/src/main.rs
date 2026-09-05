@@ -34,18 +34,28 @@ fn show_last(app: &tauri::AppHandle) {
     let label = app.state::<Desktop>().last.lock().unwrap().clone();
     show(app, if label.is_empty() { "launcher" } else { &label });
 }
+fn node_path(path: PathBuf) -> PathBuf {
+    // Windows shell APIs can return verbatim paths. Node's main-module resolver
+    // needs an ordinary drive/UNC path even though CreateProcess accepts both.
+    #[cfg(windows)] {
+        let text = path.to_string_lossy();
+        if let Some(rest) = text.strip_prefix(r"\\?\UNC\") { return PathBuf::from(format!(r"\\{}", rest)); }
+        if let Some(rest) = text.strip_prefix(r"\\?\") { return PathBuf::from(rest); }
+    }
+    path
+}
 fn application_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     if cfg!(debug_assertions) {
         return Ok(PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf());
     }
-    Ok(app.path().resource_dir().map_err(|e| e.to_string())?.join("paperweave"))
+    Ok(node_path(app.path().resource_dir().map_err(|e| e.to_string())?.join("paperweave")))
 }
 fn launch(app: &tauri::AppHandle, project: Option<String>, override_data: Option<String>) -> Result<(), String> {
     let remember = override_data.is_none();
     let desktop = app.state::<Desktop>();
     // Serialize launches: no duplicate service/window from double click or a second instance.
     let _guard = desktop.launch.lock().unwrap();
-    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data = node_path(app.path().app_data_dir().map_err(|e| e.to_string())?);
     std::fs::create_dir_all(&app_data).map_err(|e| e.to_string())?;
     let data_dir = override_data.unwrap_or_else(|| app_data.join("workspace").to_string_lossy().into_owned());
     let root = application_root(app)?;
@@ -114,7 +124,7 @@ async fn launch_default(app: tauri::AppHandle) -> Result<(), String> {
 async fn open_project(app: tauri::AppHandle) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         if let Some(folder) = app.dialog().file().set_title("打开研究目录").blocking_pick_folder() {
-            let project = folder.into_path().map_err(|e| e.to_string())?;
+            let project = node_path(folder.into_path().map_err(|e| e.to_string())?);
             launch(&app, Some(project.to_string_lossy().into_owned()), None)?;
         }
         Ok(())

@@ -15,6 +15,17 @@ if (!exe)
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), "paperweave-native-"));
 const debugPort = await freePort();
 const dataDir = path.join(dir, ".paperweave");
+const preferenceFile = path.join(
+  process.env.APPDATA,
+  "org.paperweave.desktop",
+  "last-project.json",
+);
+let previousPreference;
+try {
+  previousPreference = await fs.readFile(preferenceFile);
+} catch (e) {
+  if (e.code !== "ENOENT") throw e;
+}
 await fs.mkdir(dataDir, { recursive: true });
 await fs.writeFile(
   path.join(dataDir, "config.json"),
@@ -72,7 +83,7 @@ try {
           .find((p) => p.url().startsWith("http://127.0.0.1:"));
         return !!page;
       },
-      { timeout: 60000 },
+      { timeout: 25000 },
     )
     .toBe(true);
   await expect(page.locator(".topbar")).toBeVisible();
@@ -170,6 +181,24 @@ try {
   console.log(
     "PASS installed application uses bundled Node and exact MCP space routing",
   );
+} catch (error) {
+  for (const context of browser?.contexts() || [])
+    for (const page of context.pages()) {
+      console.log(
+        "Native page:",
+        new URL(page.url()).origin,
+        await page
+          .locator("#error")
+          .textContent({ timeout: 500 })
+          .catch(() => ""),
+      );
+      await page
+        .screenshot({
+          path: path.join(root, "artifacts/desktop-diagnostic.png"),
+        })
+        .catch(() => {});
+    }
+  throw error;
 } finally {
   await browser?.close();
   child.kill();
@@ -186,6 +215,18 @@ try {
     } catch {}
   }
   await delay(1000);
+  // Also supports early candidates that remembered an explicit test data directory.
+  try {
+    if (
+      JSON.parse(await fs.readFile(preferenceFile, "utf8")).dataDir === dataDir
+    ) {
+      if (previousPreference)
+        await fs.writeFile(preferenceFile, previousPreference);
+      else await fs.unlink(preferenceFile);
+    }
+  } catch (e) {
+    if (e.code !== "ENOENT") throw e;
+  }
   await fs.rm(dir, {
     recursive: true,
     force: true,
