@@ -41,6 +41,7 @@ fn application_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(app.path().resource_dir().map_err(|e| e.to_string())?.join("paperweave"))
 }
 fn launch(app: &tauri::AppHandle, project: Option<String>, override_data: Option<String>) -> Result<(), String> {
+    let remember = override_data.is_none();
     let desktop = app.state::<Desktop>();
     // Serialize launches: no duplicate service/window from double click or a second instance.
     let _guard = desktop.launch.lock().unwrap();
@@ -87,7 +88,7 @@ fn launch(app: &tauri::AppHandle, project: Option<String>, override_data: Option
     desktop.services.lock().unwrap().insert(label.clone(), service.clone());
     *desktop.last.lock().unwrap() = label.clone();
     // Portable app state contains paths only; never a runtime token.
-    let _ = std::fs::write(app_data.join("last-project.json"), serde_json::to_vec(&service).unwrap());
+    if remember { let _ = std::fs::write(app_data.join("last-project.json"), serde_json::to_vec(&service).unwrap()); }
     show(app, &label);
     if let Some(launcher) = app.get_webview_window("launcher") { let _ = launcher.hide(); }
     Ok(())
@@ -187,7 +188,9 @@ fn main() {
                     "monitor" => { let app = app.clone(); std::thread::spawn(move || { let label = app.state::<Desktop>().last.lock().unwrap().clone(); if let Err(e) = monitor(&app, &label) { app.dialog().message(e).show(|_| {}); } }); },
                     _ => {}
                 }).build(app)?;
-            WebviewWindowBuilder::new(app, "launcher", WebviewUrl::App("index.html".into())).title("Paperweave").inner_size(600.0, 430.0).center().build()?;
+            let launcher = WebviewWindowBuilder::new(app, "launcher", WebviewUrl::App("index.html".into())).title("Paperweave").inner_size(600.0, 430.0).center().build()?;
+            let keeper = launcher.clone();
+            launcher.on_window_event(move |event| { if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); let _ = keeper.hide(); } });
             Ok(())
         })
         .build(tauri::generate_context!()).expect("Paperweave desktop initialization failed")

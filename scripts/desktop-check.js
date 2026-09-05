@@ -1,0 +1,195 @@
+import { chromium, expect } from "@playwright/test";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { spawn } from "node:child_process";
+import { setTimeout as delay } from "node:timers/promises";
+import { freePort, samplePdf, seedDemo } from "../test/fixtures.js";
+import { root } from "../server/config.js";
+
+const exe = process.env.PAPERWEAVE_DESKTOP_EXE;
+if (!exe)
+  throw new Error(
+    "Set PAPERWEAVE_DESKTOP_EXE to the installed Windows application",
+  );
+const dir = await fs.mkdtemp(path.join(os.tmpdir(), "paperweave-native-"));
+const debugPort = await freePort();
+const dataDir = path.join(dir, ".paperweave");
+await fs.mkdir(dataDir, { recursive: true });
+await fs.writeFile(
+  path.join(dataDir, "config.json"),
+  JSON.stringify({
+    agent: "shell",
+    terminalCwd: dir,
+    terminalShellArgs: ["-NoLogo", "-NoProfile"],
+  }),
+);
+await fs.mkdir(path.join(dir, "claude/sessions"), { recursive: true });
+await fs.writeFile(
+  path.join(dir, "claude/sessions/123.json"),
+  JSON.stringify({
+    status: "waiting",
+    name: "Synthetic native session",
+    cwd: dir,
+    waitingFor: "Fixture approval",
+    updatedAt: Date.now(),
+  }),
+);
+// Separate profile keeps native WebView storage and MCP state out of the user's work.
+const child = spawn(exe, ["--data-dir", dataDir], {
+  windowsHide: true,
+  stdio: "ignore",
+  env: {
+    ...process.env,
+    CLAUDE_CONFIG_DIR: path.join(dir, "claude"),
+    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${debugPort}`,
+    WEBVIEW2_USER_DATA_FOLDER: path.join(dir, "webview"),
+    PATH: `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}\\System32\\WindowsPowerShell\\v1.0`,
+  },
+});
+let browser, runtime;
+try {
+  for (let i = 0; i < 100; i++) {
+    try {
+      browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`, {
+        timeout: 1500,
+      });
+      break;
+    } catch {
+      if (child.exitCode !== null)
+        throw new Error("Native host exited before opening its WebView");
+      await delay(300);
+    }
+  }
+  if (!browser) throw new Error("No native WebView debugging endpoint");
+  const context = browser.contexts()[0];
+  let page;
+  await expect
+    .poll(
+      () => {
+        page = context
+          .pages()
+          .find((p) => p.url().startsWith("http://127.0.0.1:"));
+        return !!page;
+      },
+      { timeout: 60000 },
+    )
+    .toBe(true);
+  await expect(page.locator(".topbar")).toBeVisible();
+  runtime = JSON.parse(
+    await fs.readFile(path.join(dataDir, "runtime.json"), "utf8"),
+  );
+  const api = async (name, args) => {
+    const response = await fetch(`${runtime.url}/api/tools/${name}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${runtime.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(args),
+    });
+    if (!response.ok) throw new Error(`Fixture tool failed: ${name}`);
+    return response.json();
+  };
+  const seeded = await seedDemo(api);
+  await expect(page.locator(".graph-node")).toHaveCount(6);
+  await expect(page.locator(".xterm-screen")).toBeVisible();
+  const term = page.locator(".xterm-helper-textarea");
+  const inputs = [],
+    output = [];
+  const websocket = await page.context().newCDPSession(page);
+  await websocket.send("Network.enable");
+  websocket.on("Network.webSocketFrameSent", (e) => {
+    try {
+      const m = JSON.parse(e.response.payloadData);
+      if (m.type === "input") inputs.push(m.data);
+    } catch {}
+  });
+  websocket.on("Network.webSocketFrameReceived", (e) => {
+    try {
+      const m = JSON.parse(e.response.payloadData);
+      if (m.type === "data") output.push(m.data);
+    } catch {}
+  });
+  await term.press("Control+c");
+  await term.pressSequentially("Write-Output 'NATIVE_TERMINAL_OK'");
+  await term.press("Enter");
+  await expect.poll(() => inputs.join("")).toContain("NATIVE_TERMINAL_OK");
+  await expect
+    .poll(() => output.join("").replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, ""))
+    .toMatch(/NATIVE_TERMINAL_OK\r?\n/);
+  console.log(
+    "PASS native WebView, embedded real PTY keyboard input and synthetic project",
+  );
+  const pdf = path.join(dir, "fixture.pdf");
+  await fs.writeFile(pdf, samplePdf(4));
+  await api("attach_pdf", { paperId: seeded.papers[0].id, path: pdf });
+  await page.locator(".graph-node").first().dblclick();
+  await expect(page.locator(".pdf-page")).toHaveCount(4);
+  await expect(page.locator(".textLayer span").first()).toBeVisible();
+  console.log(
+    "PASS PDF rendering and selectable text inside the native WebView",
+  );
+  await page.evaluate(() => window.__TAURI__.core.invoke("open_monitor"));
+  let monitor;
+  await expect
+    .poll(() => {
+      monitor = context.pages().find((p) => p.url().includes("monitor=1"));
+      return !!monitor;
+    })
+    .toBe(true);
+  await expect(monitor.locator(".monitor-session")).toContainText("等待你处理");
+  await monitor.getByRole("button", { name: "取消置顶" }).click();
+  await expect(monitor.getByRole("button", { name: "置顶浮窗" })).toBeVisible();
+  await monitor.getByRole("button", { name: "折叠监控" }).click();
+  await expect(monitor.locator(".session-monitor")).toHaveClass(/collapsed/);
+  await monitor.getByRole("button", { name: "展开监控" }).click();
+  const documentIdentity = await page.evaluate(() => {
+    window.__nativeContinuity = crypto.randomUUID();
+    return window.__nativeContinuity;
+  });
+  await page.evaluate(() => window.__TAURI__.core.invoke("hide_window"));
+  await monitor.getByRole("button", { name: "工作台", exact: true }).click();
+  expect(await page.evaluate(() => window.__nativeContinuity)).toBe(
+    documentIdentity,
+  );
+  await expect(page.locator(".terminal-status")).toContainText("本地 Shell");
+  console.log(
+    "PASS separate native monitor, pinning, collapse and hide/restore without remounting the terminal",
+  );
+  await fs.mkdir(path.join(root, "artifacts"), { recursive: true });
+  await page.screenshot({
+    path: path.join(root, "artifacts/desktop-reader.png"),
+  });
+  await monitor.screenshot({
+    path: path.join(root, "artifacts/desktop-monitor.png"),
+  });
+  const info = await fetch(`${runtime.url}/api/session`).then((r) => r.json());
+  expect(info.mcpConfig.command.toLowerCase()).toContain("runtime");
+  expect(info.mcpConfig.env.PAPERWEAVE_DATA_DIR).toBe(dataDir);
+  console.log(
+    "PASS installed application uses bundled Node and exact MCP space routing",
+  );
+} finally {
+  await browser?.close();
+  child.kill();
+  if (!runtime) {
+    try {
+      runtime = JSON.parse(
+        await fs.readFile(path.join(dataDir, "runtime.json"), "utf8"),
+      );
+    } catch {}
+  }
+  if (runtime?.pid) {
+    try {
+      process.kill(runtime.pid);
+    } catch {}
+  }
+  await delay(1000);
+  await fs.rm(dir, {
+    recursive: true,
+    force: true,
+    maxRetries: 8,
+    retryDelay: 300,
+  });
+}
