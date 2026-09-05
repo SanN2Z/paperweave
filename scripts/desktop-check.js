@@ -6,6 +6,8 @@ import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { freePort, samplePdf, seedDemo } from "../test/fixtures.js";
 import { root } from "../server/config.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
 const exe = process.env.PAPERWEAVE_DESKTOP_EXE;
 if (!exe)
@@ -132,6 +134,29 @@ try {
   console.log(
     "PASS native WebView, embedded real PTY keyboard input and synthetic project",
   );
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: runtime.url,
+  });
+  const clipboardBackup = await page.evaluate(() =>
+    navigator.clipboard.readText(),
+  );
+  try {
+    await page.evaluate(() =>
+      navigator.clipboard.writeText("NATIVE_CLIPBOARD_科研粘贴"),
+    );
+    const first = inputs.length;
+    await term.press("Control+v");
+    await expect
+      .poll(() => inputs.slice(first).join(""))
+      .toContain("NATIVE_CLIPBOARD_科研粘贴");
+    await term.press("Control+c");
+    console.log("PASS native WebView real clipboard paste into the PTY");
+  } finally {
+    await page.evaluate(
+      (value) => navigator.clipboard.writeText(value),
+      clipboardBackup,
+    );
+  }
   const pdf = path.join(dir, "fixture.pdf");
   await fs.writeFile(pdf, samplePdf(4));
   await api("attach_pdf", { paperId: seeded.papers[0].id, path: pdf });
@@ -178,6 +203,21 @@ try {
   const info = await fetch(`${runtime.url}/api/session`).then((r) => r.json());
   expect(info.mcpConfig.command.toLowerCase()).toContain("runtime");
   expect(info.mcpConfig.env.PAPERWEAVE_DATA_DIR).toBe(dataDir);
+  const mcp = new Client({ name: "paperweave-native-check", version: "1" });
+  try {
+    await mcp.connect(
+      new StdioClientTransport({
+        ...info.mcpConfig,
+        cwd: os.tmpdir(),
+        stderr: "pipe",
+      }),
+    );
+    const result = await mcp.callTool({ name: "get_context", arguments: {} });
+    expect(result.isError).not.toBe(true);
+    expect(JSON.stringify(result.content)).toContain(seeded.workspace.id);
+  } finally {
+    await mcp.close();
+  }
   console.log(
     "PASS installed application uses bundled Node and exact MCP space routing",
   );

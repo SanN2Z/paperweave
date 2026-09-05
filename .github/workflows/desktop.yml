@@ -24,6 +24,7 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: npm run desktop:stage
+      - run: node scripts/desktop-licenses.js
       - run: npm run desktop:build
       - name: Hash installer
         shell: pwsh

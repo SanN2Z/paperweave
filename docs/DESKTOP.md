@@ -37,6 +37,7 @@ npm run build
 npm test
 npm run test:browser
 npm run desktop:stage
+node scripts/desktop-licenses.js
 npm run desktop:build
 ```
 
