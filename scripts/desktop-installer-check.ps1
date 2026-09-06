@@ -2,8 +2,9 @@
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_OS -ne 'Windows') { throw 'Run only on a disposable Windows GitHub runner.' }
 if (Get-Process paperweave-desktop -ErrorAction SilentlyContinue) { throw 'A desktop instance is already running.' }
-$installer = Get-ChildItem 'src-tauri/target/release/bundle/nsis/*-setup.exe' | Select-Object -First 1
-if (!$installer) { throw 'Missing installer' }
+$releaseConfig = Get-Content 'src-tauri/tauri.conf.json' -Raw -Encoding utf8 | ConvertFrom-Json
+$installerName = "$($releaseConfig.productName)_$($releaseConfig.version)_x64-setup.exe"
+$installer = Get-Item -LiteralPath (Join-Path 'src-tauri/target/release/bundle/nsis' $installerName)
 $installPath = Join-Path $env:LOCALAPPDATA 'Paperweave'
 $dataPath = Join-Path $env:APPDATA 'org.paperweave.desktop'
 $registryPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Paperweave'
