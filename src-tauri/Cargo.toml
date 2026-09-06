@@ -1,6 +1,6 @@
 [package]
 name = "paperweave-desktop"
-version = "0.2.2"
+version = "0.2.3"
 description = "Shanzi desktop research workbench"
 authors = ["Shanzi contributors"]
 license = "MIT"

@@ -28,7 +28,7 @@
   font-weight: 600;
   letter-spacing: .1px;
 }
-.desktop-drag-area img { object-fit: contain; pointer-events: none; }
+.desktop-drag-area img { object-fit: contain; pointer-events: none; border-radius: 6px; }
 .desktop-titlebar-detail { color: #939792; font-size: 11px; font-weight: 400; margin-left: 3px; }
 .desktop-window-buttons { display: flex; align-items: stretch; }
 .desktop-window-buttons button {
@@ -53,6 +53,6 @@
   background: #fff8f5; border: 1px solid #ead4c9; border-radius: 8px;
   color: #834330; font-size: 12px; box-shadow: var(--shadow-float);
 }
-.app-shell .brand-icon img { width: 33px; height: 33px; object-fit: contain; }
-.boot .brand-icon img { width: 64px; height: 64px; object-fit: contain; }
+.app-shell .brand-icon img { width: 33px; height: 33px; object-fit: contain; border-radius: 9px; }
+.boot .brand-icon img { width: 64px; height: 64px; object-fit: contain; border-radius: 16px; }
 @media (prefers-reduced-motion: reduce) { .desktop-window-buttons button { transition: none; } }
