@@ -4,6 +4,20 @@ Local environment: Windows, Node.js 24.13, installed Microsoft Edge, local MiKTe
 
 ## Executed checks
 
+### 扇子 0.2.3: small-size mascot clarity (`2f2b529`)
+
+The fan mascot now uses five broad ivory panels, a larger face, compact apricot ribs and a full-bleed warm charcoal background. The final generated master is deliberately opaque; unsuccessful checkerboard-background candidates were not shipped. The built-in tool and final prompt are documented in [the brand source notes](../assets/brand/README.md).
+
+The workbench and launcher now use identical **512 × 512 PNGs**, replacing 128px consumers. Their CSS display sizes remain 22/33/64/92px; the launcher's 92px image therefore has adequate source resolution on 2× and 3× displays. Native ICO inspection found **16, 24, 32, 48, 64 and 256px** entries; macOS ICNS and installer bitmaps were regenerated from the same master. A light/dark browser preview at 2× density was visually inspected at 22/32/48/92 CSS pixels, along with the actual custom-frame screenshot. These checks address resolution and legibility, not a guarantee of subjective design preference or the Windows icon cache on every machine.
+
+Local `npm test` passed **25 tests**, the production build passed, and the complete Edge browser workflow passed with the new assets. Known node-pty cleanup diagnostics remain separate from passing assertions and process exit. The running installed application was not replaced or restarted during these checks.
+
+The [three-platform source workflow](https://github.com/SanN2Z/paperweave/actions/runs/34000505149) passed on Windows, Linux and macOS. The [macOS desktop workflow](https://github.com/SanN2Z/paperweave/actions/runs/34000505103) passed on both Apple Silicon and Intel, including native startup, bundled MCP and WebKit acceptance. The keyboard/clipboard and signing limits for native macOS checks described below still apply.
+
+The first Windows acceptance attempt selected a cached `扇子_0.2.2_x64-setup.exe` through a wildcard, rather than the newly built 0.2.3. Its blocked child window was explicitly identified as the legacy `Installer Language` dialog; that cached candidate predates the `/UPDATE /S` fix. At `0b894ab`, the harness selects the exact product/version filename from the current Tauri configuration, and the workflow stages only that verified file for publication. It no longer uploads all executables from the cached bundle directory.
+
+The corrected [Windows 0.2.3 build and lifecycle acceptance](https://github.com/SanN2Z/paperweave/actions/runs/34001025115) passed: busy-installation refusal, real 0.2.0 upgrade with the publisher directory value missing, installed version/name and uninstall shortcut, uninstall, reinstall, and exact synthetic research-file retention. The log explicitly names `扇子_0.2.3_x64-setup.exe` for each new-installer invocation. The downloaded package is **58,928,811 bytes**, SHA256 **`97c659e42546d17addc94d160e35654163b4be7a850e9c8e78144c728145f757`**, under `artifacts/shanzi-0.2.3-release/`. GitHub's archive digest and the packaged installer checksum both matched. This delivers an installer; it does not replace the user's running local app.
+
 ### 扇子 0.2.2: fan mascot and legacy upgrade (`aba1fa4`)
 
 The product is now named 扇子 (Shanzi), with the generated anthropomorphic folding-fan mascot in the application, launch window, ICO/ICNS and installer artwork. The application identifier, MCP compatibility identifiers and existing research directory conventions remain stable.
